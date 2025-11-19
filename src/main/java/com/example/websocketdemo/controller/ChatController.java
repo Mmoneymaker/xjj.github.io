@@ -1,6 +1,8 @@
 package com.example.websocketdemo.controller;
 
+import com.example.websocketdemo.Service.MessageSaveService;
 import com.example.websocketdemo.model.ChatMessage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -12,6 +14,9 @@ import org.springframework.stereotype.Controller;
  */
 @Controller
 public class ChatController {
+
+    @Autowired
+    private MessageSaveService messageSaveService;
 
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")

@@ -54,7 +54,9 @@ body:before {
 }
 
 input {
+    /*左内边距,即文字离input表格最左边的距离*/
     padding-left: 10px;
+    /**/
     outline: none;
 }
 
@@ -97,6 +99,7 @@ button.primary {
     box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.12);
     color: #fff;
 }
+
 
 button.accent {
     background-color: #ff4743;
