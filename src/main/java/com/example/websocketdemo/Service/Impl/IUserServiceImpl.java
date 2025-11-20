@@ -39,12 +39,11 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
                 save(user);
                 userCacheService.delete(user.getUsername());
             } catch (Exception e) {
-                if (e instanceof DuplicateKeyException)  {
+                if (e instanceof DuplicateKeyException) {
                     System.out.println("用户已经注册过了");//测试用，之后删掉
                     return ResponseEntity.status(403).body("用户已经注册过");
                 }
             }
-            userCacheService.saveUser(user);
         }
         return ResponseEntity.ok("注册成功");
     }
@@ -56,15 +55,14 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
                 && userCacheService.exists(user.getUsername())
         ){
             //通过cookie把token存在客户端，客户端每次自动把token放在请求头中,服务端则通过redis缓存
-            String token= CookieUtils.GenerateToken();
+            String token= CookieUtils.CreateToken();
             Cookie cookie=CookieUtils.CreateCookie(token);
             response.addCookie(cookie);
-            userCacheService.Save(token);
-            userCacheService.saveToken(token, user);
             //这里保存token相关的信息，必须要用hash，hash的key和value映射为实际的DTO对象
             /*stringRedisTemplate.opsForHash().put("user:token:"+token,
                     user.getUsername(),
                     user.getPassword());*/
+            userCacheService.saveToken(token,user);
             return ResponseEntity.ok(token);
         }
         //如果没在缓存中查到，就去mysql库里面查，然后再更新到redis中.

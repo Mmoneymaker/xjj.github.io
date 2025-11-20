@@ -3,9 +3,7 @@ package com.example.websocketdemo.Service;
 
 import com.example.websocketdemo.DTO.User;
 import com.example.websocketdemo.Utils.RedisKeyUtils;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -19,13 +17,6 @@ public class UserCacheService {
     //StringRedisTemplate自动使用StringRedisSerializer进行序列化，如果想变成json格式的需要自己配置为Jackson2Json或者GenericJackson2json
     @Autowired
     private RedisTemplate<String,Object> redis;
-
-    private HashOperations<String, String, Object> hashOps;
-
-    @PostConstruct
-    public void init() {
-        hashOps = redis.opsForHash();
-    }
 
     public void saveUser(User user) {
         redis.opsForHash().put(RedisKeyUtils.USER_HASH,
@@ -48,11 +39,7 @@ public class UserCacheService {
 
     public void saveToken(String token, User user) {
         redis.opsForHash().put(RedisKeyUtils.tokenKey(token),
-                "tokenInfo",
+                user.getUsername(),
                 user);
-    }
-
-    public void Save(String token){
-        redis.opsForHash().put(RedisKeyUtils.tokenKey(token),"token","xjj");
     }
 }

@@ -25,7 +25,7 @@ public class UserController {
     }
 
     @PostMapping("/Login")
-    public ResponseEntity<String> login(@RequestBody User user, HttpSession session, HttpServletResponse response) {
+    public ResponseEntity<String> login( @RequestBody User user, HttpSession session, HttpServletResponse response) {
         //login返回的是token，让前端去接收，方便后续websocket下跨域能用
         return userService.login(user,session,response);
     }
