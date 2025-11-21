@@ -68,7 +68,7 @@ const ChatApp = {
             // Use native WebSocket if brokerURL is provided; otherwise SockJS.
             // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
 
-            brokerURL:'/ws',
+            brokerURL: 'ws://localhost:8080/ws',
             heartbeatIncoming:10000,
             heartbeatOutgoing:10000,
             debug: (str) => console.log(str),
@@ -77,11 +77,9 @@ const ChatApp = {
             },
             onConnect   : (frame) => this.onConnected(frame),
             onStompError: (frame) => {
-
                 alert("token过期");
                 },
         });
-        this.client.heartbeat.outgoing=10000;
         this.client.activate();
     },
 
@@ -218,13 +216,6 @@ async function login(event){
     return alert("登陆成功");
 }
 
-async function checktoken(e){
-    e.preventDefault();
-
-    let response = await fetch({
-
-    })
-}
 /* ------------------------------------------------------------------
  * Event bindings
  * ----------------------------------------------------------------*/
