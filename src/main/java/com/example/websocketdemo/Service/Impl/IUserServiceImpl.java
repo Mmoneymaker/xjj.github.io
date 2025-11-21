@@ -56,6 +56,7 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         ){
             //通过cookie把token存在客户端，客户端每次自动把token放在请求头中,服务端则通过redis缓存
             String token= CookieUtils.CreateToken();
+            System.out.println("后端生成的token"+token);
             Cookie cookie=CookieUtils.CreateCookie(token);
             response.addCookie(cookie);
             //这里保存token相关的信息，必须要用hash，hash的key和value映射为实际的DTO对象
@@ -67,12 +68,17 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         }
         //如果没在缓存中查到，就去mysql库里面查，然后再更新到redis中.
         else{
-            QueryWrapper<User> wrapper = new QueryWrapper<>();
+            try {QueryWrapper<User> wrapper = new QueryWrapper<>();
                    User ur=getOne(wrapper.eq("username",user.getUsername()));
+            String token= CookieUtils.CreateToken();
+            System.out.println("后端生成的token"+token);
              //      stringRedisTemplate.opsForHash().put("user:",ur.getUsername(),ur.getPassword());
                    userCacheService.saveUser(user);
+            return ResponseEntity.ok(token);} catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
-        return ResponseEntity.status(404).body(null);
+        //return ResponseEntity.status(404).body(null);
     }
 
     @Override
