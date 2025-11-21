@@ -69,16 +69,19 @@ const ChatApp = {
             // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
 
             brokerURL:'/ws',
-
+            heartbeatIncoming:10000,
+            heartbeatOutgoing:10000,
             debug: (str) => console.log(str),
-
+            onWebSocketClose:(event)=>{
+                console.log("链接已断开",event)
+            },
             onConnect   : (frame) => this.onConnected(frame),
             onStompError: (frame) => {
 
                 alert("token过期");
                 },
         });
-
+        this.client.heartbeat.outgoing=10000;
         this.client.activate();
     },
 

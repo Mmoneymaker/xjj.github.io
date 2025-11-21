@@ -17,6 +17,9 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private WebSocketSessionManager sessionManager;
     private final Map<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
+    public WebSocketSession getSession(String sessionId) {
+        return sessionMap.get(sessionId);
+    }
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessionMap.put(session.getId(), session);
