@@ -3,6 +3,7 @@ package com.example.websocketdemo.controller;
 import com.example.websocketdemo.Service.MessageSaveService;
 import com.example.websocketdemo.model.ChatMessage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -20,7 +21,8 @@ public class ChatController {
 
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
-    public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
+    public ChatMessage sendMessage(@Payload ChatMessage chatMessage, @Header(value="Token",required=false) String token) {
+        System.out.println("从前端收到的token"+token);
         return chatMessage;
     }
 
