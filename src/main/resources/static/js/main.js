@@ -62,6 +62,9 @@ const ChatApp = {
         if (!this.username) return;
 
         this.showChat();
+        // 关键修改：从Cookie读取token，而不是localStorage
+        const token = this.getCookie('authToken'); // 根据你的Cookie名称调整
+
 
         // --- Create and activate Stomp client ---
         this.client = new StompJs.Client({
@@ -79,6 +82,10 @@ const ChatApp = {
             onStompError: (frame) => {
                 alert("token过期");
                 },
+            headers:{
+                Token:localStorage.getItem("Token"),
+                username:this.username
+            }
         });
         this.client.activate();
     },
@@ -211,9 +218,29 @@ async function login(event){
         return alert("用户不存在或者密码错误");
     }
     const data=await response.text();
-    localStorage.setItem("Token",data);
+    // const token=getCookie("authToken")
+    // if(token){
+    //     localStorage.setItem("Token",token);
+    // }
     ChatApp.showStartChat(username);
     return alert("登陆成功");
+}
+function getCookie(name) {
+    // 1. 获取所有cookie
+    const allCookies = document.cookie;
+
+    // 2. 按分号分割成数组
+    const cookies = allCookies.split('; ');
+
+    // 3. 遍历查找目标cookie
+    for (let cookie of cookies) {
+        const [cookieName, cookieValue] = cookie.split('=');
+        if (cookieName === name) {
+            return cookieValue;
+        }
+    }
+
+    return null;
 }
 
 /* ------------------------------------------------------------------

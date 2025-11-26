@@ -1,6 +1,6 @@
 package com.example.websocketdemo.config;
 
-import com.example.websocketdemo.Utils.WebSocketChatInterceptor;
+import com.example.websocketdemo.Utils.AuthChannelInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -51,10 +51,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         scheduler.initialize();
         return scheduler;
     }
-//    @Override
-//    public void configureClientInboundChannel(ChannelRegistration registration) {
-//        registration.interceptors(new WebSocketChatInterceptor());
-//    }
+
+    //这下面是注册channelInterceptor拦截器
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(new AuthChannelInterceptor());
+    }
 
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {

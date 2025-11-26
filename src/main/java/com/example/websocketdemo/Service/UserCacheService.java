@@ -42,4 +42,8 @@ public class UserCacheService {
                 user.getUsername(),
                 user);
     }
+
+    public boolean isValid(String token,String username) {
+        return redis.opsForHash().hasKey(RedisKeyUtils.USER_HASH+token,username);
+    }
 }

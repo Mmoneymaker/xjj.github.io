@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
 import cn.hutool.core.lang.UUID;
@@ -36,6 +37,8 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
             try {
                 //这里是否可以先存到redis中缓存下来，后续再去存到数据库中
                 //cache-aside机制，写的时候先写进数据库，再删除redis缓存
+                String encodedPassword = BCrypt.hashpw(user.getPassword(), BCrypt.gensalt());
+                user.setPassword(encodedPassword);
                 save(user);
                 userCacheService.delete(user.getUsername());
             } catch (Exception e) {
@@ -49,38 +52,47 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
     }
 
     @Override
-    public ResponseEntity<String>   login(User user, HttpSession session, HttpServletResponse response) {
-        if(
-                user.getPassword().equals(userCacheService.getPassword(user.getUsername()))
-                && userCacheService.exists(user.getUsername())
-        ){
-            //通过cookie把token存在客户端，客户端每次自动把token放在请求头中,服务端则通过redis缓存
-            String token= CookieUtils.CreateToken();
-            System.out.println("后端生成的token"+token);
-            Cookie cookie=CookieUtils.CreateCookie(token);
-            response.addCookie(cookie);
-            //这里保存token相关的信息，必须要用hash，hash的key和value映射为实际的DTO对象
-            /*stringRedisTemplate.opsForHash().put("user:token:"+token,
-                    user.getUsername(),
-                    user.getPassword());*/
-            userCacheService.saveToken(token,user);
-            return ResponseEntity.ok(token);
-        }
-        //如果没在缓存中查到，就去mysql库里面查，然后再更新到redis中.
-        else{
-            try {QueryWrapper<User> wrapper = new QueryWrapper<>();
-                   User ur=getOne(wrapper.eq("username",user.getUsername()));
-            String token= CookieUtils.CreateToken();
-            System.out.println("后端生成的token"+token);
-             //      stringRedisTemplate.opsForHash().put("user:",ur.getUsername(),ur.getPassword());
-                   userCacheService.saveUser(user);
-            return ResponseEntity.ok(token);} catch (Exception e) {
+    public ResponseEntity<String> login(User user, HttpSession session, HttpServletResponse response) {
+        boolean loginSuccess = false;
+        User loginUser = null;
+
+        // 1. 验证逻辑
+        if (BCrypt.checkpw(user.getPassword(), userCacheService.getPassword(user.getUsername()))
+                && userCacheService.exists(user.getUsername())) {
+            loginSuccess = true;
+            loginUser = user;
+        } else {
+            // 数据库查询
+            try {
+                QueryWrapper<User> wrapper = new QueryWrapper<>();
+                User ur = getOne(wrapper.eq("username", user.getUsername()));
+                if (ur != null && BCrypt.checkpw(user.getPassword(), ur.getPassword())) {
+                    loginSuccess = true;
+                    loginUser = ur;
+                    // 更新缓存
+                    userCacheService.saveUser(ur);
+                }
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
-        //return ResponseEntity.status(404).body(null);
-    }
 
+        // 2. 登录成功处理
+        if (loginSuccess && loginUser != null) {
+            String token = CookieUtils.GenerateToken();
+            System.out.println("后端生成的token: " + token);
+
+            // 只通过Cookie返回，不通过响应体
+            Cookie cookie = CookieUtils.CreateCookie(token);
+            response.addCookie(cookie);
+
+            userCacheService.saveToken(token, loginUser);
+
+            return ResponseEntity.ok("登录成功"); // 不返回token
+        }
+
+        return ResponseEntity.status(401).body("用户名或密码错误");
+    }
     @Override
     public void test(HttpServletRequest request){
         String token=CookieUtils.GetCookie(request);
