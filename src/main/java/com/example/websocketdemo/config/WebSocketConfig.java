@@ -1,6 +1,7 @@
 package com.example.websocketdemo.config;
 
 import com.example.websocketdemo.Utils.AuthChannelInterceptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -17,7 +18,8 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-
+    @Autowired
+    AuthChannelInterceptor authChannelInterceptor;
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
@@ -55,7 +57,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     //这下面是注册channelInterceptor拦截器
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(new AuthChannelInterceptor());
+     //千万不能new,new出来的没法依赖注入   registration.interceptors(new AuthChannelInterceptor());
+        registration.interceptors(authChannelInterceptor);
     }
 
     @Bean

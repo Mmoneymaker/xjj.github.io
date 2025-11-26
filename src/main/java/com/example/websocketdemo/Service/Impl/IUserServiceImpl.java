@@ -57,8 +57,9 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         User loginUser = null;
 
         // 1. 验证逻辑
-        if (BCrypt.checkpw(user.getPassword(), userCacheService.getPassword(user.getUsername()))
-                && userCacheService.exists(user.getUsername())) {
+        if ( userCacheService.exists(user.getUsername())&&
+                BCrypt.checkpw(user.getPassword(), userCacheService.getPassword(user.getUsername()))
+        ) {
             loginSuccess = true;
             loginUser = user;
         } else {
@@ -80,7 +81,7 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         // 2. 登录成功处理
         if (loginSuccess && loginUser != null) {
             String token = CookieUtils.GenerateToken();
-            System.out.println("后端生成的token: " + token);
+            System.out.println("后端生成的token:" + token);
 
             // 只通过Cookie返回，不通过响应体
             Cookie cookie = CookieUtils.CreateCookie(token);

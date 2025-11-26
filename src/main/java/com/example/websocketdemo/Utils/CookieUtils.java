@@ -15,8 +15,7 @@ public class CookieUtils {
     public static Cookie CreateCookie(String token){
         Cookie cookie=new Cookie("authToken",token);
         cookie.setPath("/");
-        cookie.setHttpOnly(true);//httponly会让js无法读取到cookie信息
-        cookie.setSecure(true);
+        cookie.setHttpOnly(false);//httponly会让js无法读取到cookie信息
         cookie.setMaxAge(3600);//cookie存活时间
         return cookie;
     }

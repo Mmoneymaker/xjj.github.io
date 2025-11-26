@@ -20,9 +20,12 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
         if(accessor.getCommand().equals(StompCommand.CONNECT)){
-            System.out.println("Token:"+message.getHeaders().toString());
             String token = accessor.getFirstNativeHeader("Token");
+            System.out.println("前端Websocket传来的Token:"+token);
             String username=accessor.getFirstNativeHeader("username");
+            System.out.println("前端Websocket传来的name:"+username);
+            boolean result=(userCacheService.isValid(token,username));
+            System.out.println("是否校验成功"+result);
             if (token == null || !userCacheService.isValid(token,username)) {
                 // 如果 Token 无效，直接抛出异常，连接会被断开
                 throw new IllegalArgumentException("无权访问：Token 无效或已过期");

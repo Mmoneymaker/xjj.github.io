@@ -54,7 +54,22 @@ const ChatApp = {
         document.getElementById("password").classList.add('hidden');
         document.querySelector("h1").innerHTML="Welcome:"+Username;
     },
+     getCookie(name) {
+    // 1. 获取所有cookie
+    const allCookies = document.cookie;
 
+    // 2. 按分号分割成数组
+    const cookies = allCookies.split('; ');
+
+    // 3. 遍历查找目标cookie
+    for (let cookie of cookies) {
+        const [cookieName, cookieValue] = cookie.split('=');
+        if (cookieName === name) {
+            return cookieValue;
+        }
+    }
+    return null;
+},
     /* --------------------------- Connection ------------------------------ */
     connect(event) {
         event?.preventDefault();
@@ -63,8 +78,9 @@ const ChatApp = {
 
         this.showChat();
         // 关键修改：从Cookie读取token，而不是localStorage
+        console.log("Cookie是",document.cookie);
         const token = this.getCookie('authToken'); // 根据你的Cookie名称调整
-
+        console.log("后端传来的token="+token);
 
         // --- Create and activate Stomp client ---
         this.client = new StompJs.Client({
@@ -82,8 +98,8 @@ const ChatApp = {
             onStompError: (frame) => {
                 alert("token过期");
                 },
-            headers:{
-                Token:localStorage.getItem("Token"),
+            connectHeaders:{
+                Token:token,
                 username:this.username
             }
         });
@@ -169,6 +185,8 @@ const ChatApp = {
         messageArea.appendChild(li);
         messageArea.scrollTop = messageArea.scrollHeight;
     },
+
+
 };
 
 
@@ -214,7 +232,7 @@ async function login(event){
             mode:"cors"
         }
     )
-    if(response.status==404){
+    if(response.status!=200){
         return alert("用户不存在或者密码错误");
     }
     const data=await response.text();
@@ -225,23 +243,7 @@ async function login(event){
     ChatApp.showStartChat(username);
     return alert("登陆成功");
 }
-function getCookie(name) {
-    // 1. 获取所有cookie
-    const allCookies = document.cookie;
 
-    // 2. 按分号分割成数组
-    const cookies = allCookies.split('; ');
-
-    // 3. 遍历查找目标cookie
-    for (let cookie of cookies) {
-        const [cookieName, cookieValue] = cookie.split('=');
-        if (cookieName === name) {
-            return cookieValue;
-        }
-    }
-
-    return null;
-}
 
 /* ------------------------------------------------------------------
  * Event bindings
