@@ -32,12 +32,6 @@ public class CookieUtils {
         return token;
     }
 
-    public static String CreateToken(){
-        String token= UUID.randomUUID().toString(true);
-        System.out.println("服务端生成的token:"+token);
-        return token;
-    }
-
     public static String GenerateToken(){
         byte[] bytes=new byte[32];
         new SecureRandom().nextBytes(bytes);
