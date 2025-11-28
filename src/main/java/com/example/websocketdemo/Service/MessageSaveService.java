@@ -6,5 +6,5 @@ import org.springframework.stereotype.Service;
 
 @Service
 public interface MessageSaveService {
-    public ChatMessage save(ChatMessage message);
+    public void save(ChatMessage message);
 }

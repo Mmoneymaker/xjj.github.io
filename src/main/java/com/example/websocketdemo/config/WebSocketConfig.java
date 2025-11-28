@@ -24,7 +24,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
-               ;
+                 ;
     }
 
     @Override
@@ -33,7 +33,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         registry.enableSimpleBroker("/topic")
                 .setTaskScheduler(heartBeatScheduler())
-                .setHeartbeatValue(new long[]{10000,10000});  // Enables a simple in-memory broker
+                .setHeartbeatValue(new long[]{5000,5000});  // Enables a simple in-memory broker
 
         //   Use this for enabling a Full featured broker like RabbitMQ
         //下面的注释是集群部署的时候采用的方法即rabbitmq
