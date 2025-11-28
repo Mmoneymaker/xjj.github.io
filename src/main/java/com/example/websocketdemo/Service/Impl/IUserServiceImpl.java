@@ -34,26 +34,19 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
     //一致性策略采用cache-aside方法 写的时候先写进数据库，再删除缓存 读的时候先读缓存，读不到再读数据库，再把读到的写进缓存。
     @Override
     public void SaveUser(User user) {
+        // ✅ 必须保留：参数校验失败时抛出业务异常
         if (UserValidator.isInvalid(user)) {
-           throw new BusinessException(400,"用户参数格式错误");
-        }
-        user.setPassword( BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
-
-        try {
-                //这里是否可以先存到redis中缓存下来，后续再去存到数据库中
-                //cache-aside机制，写的时候先写进数据库，再删除redis缓存
-                save(user);
-                userCacheService.delete(user.getUsername());
-                log.info("用户注册成功: {}", user.getUsername());
-            } catch (DuplicateKeyException e) {
-                log.warn("用户重复注册尝试: {}", user.getUsername());
-                throw new BusinessException(403, "用户已存在");
-            }catch (Exception e) {
-            log.error("注册失败", e);
-            throw new RuntimeException("系统繁忙，请稍后再试", e);
+            throw new BusinessException(400, "用户参数格式错误");
         }
 
-//            return ResponseEntity.ok("注册成功");
+        user.setPassword(BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
+
+        // ✅ 直接调用，让可能的异常自然抛出
+        save(user);  // 可能抛出DuplicateKeyException（用户已存在）
+        userCacheService.delete(user.getUsername());  // 可能抛出缓存异常
+
+        log.info("用户注册成功: {}", user.getUsername());
+        // 成功就正常结束，不返回任何东西
     }
 
     @Override

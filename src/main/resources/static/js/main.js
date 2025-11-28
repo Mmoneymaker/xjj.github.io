@@ -69,7 +69,19 @@ const ChatApp = {
         }
     }
     return null;
-},
+     },
+    handleConnectionError() {
+        console.log("连接错误，尝试重连...");
+        setTimeout(() => {
+            if (this.username && this.token) {
+                this.client.activate();
+            }
+        }, 5000);
+    },
+    handleDisconnection() {
+        console.log("连接断开处理");
+        connectingElement.textContent = '连接已断开，正在重连...';
+    },
     /* --------------------------- Connection ------------------------------ */
     connect(event) {
         event?.preventDefault();
@@ -81,6 +93,7 @@ const ChatApp = {
         console.log("Cookie是",document.cookie);
         const token = this.getCookie('authToken'); // 根据你的Cookie名称调整
         console.log("后端传来的token="+token);
+        this.token=token;
 
         // --- Create and activate Stomp client ---
         this.client = new StompJs.Client({
@@ -88,16 +101,22 @@ const ChatApp = {
             // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
 
             brokerURL: 'ws://localhost:8080/ws',
-            heartbeatIncoming:10000,
-            heartbeatOutgoing:10000,
+            heartbeatIncoming:5000,
+            heartbeatOutgoing:5000,
+            reconnectDelay: 3000,
             debug: (str) => console.log(str),
             onWebSocketClose:(event)=>{
                 console.log("链接已断开",event)
             },
             onConnect   : (frame) => this.onConnected(frame),
             onStompError: (frame) => {
-                alert("token过期");
+                console.error("STOMP错误:", frame);
+                this.handleConnectionError();
                 },
+            onDisconnect: (frame) => {
+                console.log("连接断开", frame);
+                this.handleDisconnection();
+            },
             connectHeaders:{
                 Token:token,
                 username:this.username
@@ -149,7 +168,7 @@ const ChatApp = {
             destination,
             body: JSON.stringify(bodyObj),
             headers:{
-                "Token": localStorage.getItem("Token")
+                "Token": this.token
             }
         });
     },
@@ -232,14 +251,14 @@ async function login(event){
             mode:"cors"
         }
     )
-    if(response.status!=200){
+    if(!response.ok){
         return alert("用户不存在或者密码错误");
     }
-    const data=await response.text();
-    // const token=getCookie("authToken")
-    // if(token){
-    //     localStorage.setItem("Token",token);
-    // }
+
+    const result=await response.json();
+    if(result.code!==200){
+        return alert(result.msg||"登陆失败")
+    }
     ChatApp.showStartChat(username);
     return alert("登陆成功");
 }

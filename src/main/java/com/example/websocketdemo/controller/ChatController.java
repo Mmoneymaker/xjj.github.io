@@ -23,6 +23,7 @@ public class ChatController {
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage, @Header(value="Token",required=false) String token) {
         System.out.println("从前端收到的token"+token);
+        messageSaveService.save(chatMessage);
         return chatMessage;
     }
 
