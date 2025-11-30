@@ -24,6 +24,9 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
 import cn.hutool.core.lang.UUID;
+
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @Service
 public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implements IUserService {
@@ -79,8 +82,8 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
 
         Cookie cookie = CookieUtils.CreateCookie(token);
         response.addCookie(cookie);
-
-        userCacheService.saveToken(token, loginUser);
+        //30分钟
+        userCacheService.saveTokenWithExpire(token, loginUser,1800);
     }
 //    @Override
 //    public void test(HttpServletRequest request){

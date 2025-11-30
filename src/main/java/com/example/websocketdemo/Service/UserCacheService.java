@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 //Redis操作专门用UserCacheService类进行实现的目的
 //1.只有Service注解才能实现redis的自动注入
@@ -44,8 +45,18 @@ public class UserCacheService {
         redis.opsForHash().put(RedisKeyUtils.USER_TOKEN, user.getUsername(), token);
     }
 
+    public void saveTokenWithExpire(String token, User user,long expireSeconds) {
+        String key=RedisKeyUtils.USER_TOKEN+user.getUsername();
+        redis.opsForValue().set(key, token, expireSeconds, TimeUnit.SECONDS);
+    }
+
     public boolean isValid(String token, String username) {
        return  redis.opsForHash().hasKey(RedisKeyUtils.USER_TOKEN, username);
+    }
 
+    public boolean isValidToken(String token,String username) {
+              String key=RedisKeyUtils.USER_TOKEN+username;
+              String CachedToken=(String)redis.opsForValue().get(key);
+              return token!=null && token.equals(CachedToken);
     }
 }
