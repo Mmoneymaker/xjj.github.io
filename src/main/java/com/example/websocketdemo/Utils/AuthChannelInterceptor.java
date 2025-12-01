@@ -29,6 +29,7 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
             log.info("前端Websocket传来的Token:"+token);
             String username=accessor.getFirstNativeHeader("username");
             log.info("前端Websocket传来的name:"+username);
+            //token方案可能需要增强
             if (token == null || !userCacheService.isValidToken(token,username)) {
                 // 如果 Token 无效，直接抛出异常，连接会被断开
                 throw new IllegalArgumentException("无权访问：Token 无效或已过期");
@@ -37,6 +38,25 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         if (accessor.getCommand() == StompCommand.DISCONNECT) {
             log.info("WebSocket连接断开: {}", accessor.getSessionId());
         }
+
         return ChannelInterceptor.super.preSend(message, channel);
+    }
+
+    private boolean requiresAuthentication(StompCommand command) {
+        return command != null && (
+                StompCommand.CONNECT.equals(command) ||
+                        StompCommand.SUBSCRIBE.equals(command) ||
+                        StompCommand.SEND.equals(command) ||
+                        StompCommand.MESSAGE.equals(command)
+        );
+    }
+
+    private String getTokenFromMessage(StompHeaderAccessor accessor) {
+        // 从 header 中获取 token
+        String token = accessor.getFirstNativeHeader("Token");
+        if (token != null) {
+            return token;
+        }
+        return null;
     }
 }
