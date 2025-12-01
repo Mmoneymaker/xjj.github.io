@@ -101,21 +101,22 @@ const ChatApp = {
             // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
 
             brokerURL: 'ws://localhost:8080/ws',
-            heartbeatIncoming:5000,
-            heartbeatOutgoing:5000,
-            reconnectDelay: 3000,
+            heartbeatIncoming:0,
+            heartbeatOutgoing:20000,
+            reconnectDelay: 0,
             debug: (str) => console.log(str),
             onWebSocketClose:(event)=>{
-                console.log("链接已断开",event)
+                console.log("连接断开", event);
+                this.hasJoined = false; // 重置标记
             },
             onConnect   : (frame) => this.onConnected(frame),
             onStompError: (frame) => {
                 console.error("STOMP错误:", frame);
-                this.handleConnectionError();
+                // this.handleConnectionError();
                 },
             onDisconnect: (frame) => {
-                console.log("连接断开", frame);
-                this.handleDisconnection();
+                console.log("STOMP断开", frame);
+                this.hasJoined = false;
             },
             connectHeaders:{
                 Token:token,
@@ -136,7 +137,10 @@ const ChatApp = {
         this.client.subscribe('/topic/public', (msg) => this.onMessageReceived(msg));
 
         // Announce join
-        this.publish('/app/chat.addUser', { sender: this.username, type: 'JOIN' });
+        if (!this.hasJoined) {
+            this.publish('/app/chat.addUser', { sender: this.username, type: 'JOIN' });
+            this.hasJoined = true;
+        }
 
         connectingElement.classList.add('hidden');
     },
