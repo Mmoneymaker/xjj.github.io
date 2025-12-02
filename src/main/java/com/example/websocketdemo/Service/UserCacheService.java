@@ -48,4 +48,8 @@ public class UserCacheService {
        return  redis.opsForHash().hasKey(RedisKeyUtils.USER_TOKEN, username);
 
     }
+
+    public boolean isValidJwtToken(String token, String username) {
+            return redis.opsForValue().g
+    }
 }

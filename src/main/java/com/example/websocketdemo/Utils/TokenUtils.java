@@ -27,7 +27,7 @@ public class TokenUtils {
     }
 
     // 验证 JWT 的签名和过期时间
-    public boolean validateTokenFormat(String token) {
+    public boolean validateJwtTokenFormat(String token) {
         try {
             Jwts.parser()
                     .setSigningKey(SECRET_KEY)
@@ -41,7 +41,7 @@ public class TokenUtils {
     }
 
     //从JWT提取用户名
-    public String getUsernameFromToken(String token) {
+    public String getUsernameFromJwtToken(String token) {
        try {Claims claims = Jwts.parser()
                 .setSigningKey(SECRET_KEY)
                 .parseClaimsJws(token)
