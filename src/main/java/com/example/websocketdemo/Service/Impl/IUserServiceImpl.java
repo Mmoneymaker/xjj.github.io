@@ -83,7 +83,7 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         Cookie cookie = CookieUtils.CreateCookie(token);
         response.addCookie(cookie);
         //30分钟
-        userCacheService.saveTokenWithExpire(token, loginUser,1800);
+        userCacheService.saveJwtTokenWithExpire(token, loginUser,1800);
     }
 //    @Override
 //    public void test(HttpServletRequest request){

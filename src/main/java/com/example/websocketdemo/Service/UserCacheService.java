@@ -45,7 +45,7 @@ public class UserCacheService {
         redis.opsForHash().put(RedisKeyUtils.USER_TOKEN, user.getUsername(), token);
     }
 
-    public void saveTokenWithExpire(String token, User user,long expireSeconds) {
+    public void saveJwtTokenWithExpire(String token, User user,long expireSeconds) {
         String key=RedisKeyUtils.USER_TOKEN+user.getUsername();
         redis.opsForValue().set(key, token, expireSeconds, TimeUnit.SECONDS);
     }
@@ -54,13 +54,10 @@ public class UserCacheService {
        return  redis.opsForHash().hasKey(RedisKeyUtils.USER_TOKEN, username);
     }
 
-    public boolean isValidToken(String token,String username) {
+    public boolean isValidJwtToken(String token,String username) {
               String key=RedisKeyUtils.USER_TOKEN+username;
               String CachedToken=(String)redis.opsForValue().get(key);
               return token!=null && token.equals(CachedToken);
     }
 
-    public boolean isValidJwtToken(String token, String username) {
-            return redis.opsForValue().g
-    }
 }

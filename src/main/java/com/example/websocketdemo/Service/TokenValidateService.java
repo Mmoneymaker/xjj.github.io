@@ -16,20 +16,21 @@ public class TokenValidateService {
     private TokenUtils tokenUtils;
 
     //从jwt里面取用户名，与redis里面存储的作对比
-    public boolean validateToken(String token) {
+    public String validateTokenAndGetUsername(String token) {
         if (token == null||token.isEmpty()) {
-            return false;
+            return null;
         }
         try{
-            if(!tokenUtils.validateTokenFormat(token)){
-                return false;
+            //检验token是否符合jwt令牌格式
+            if(!tokenUtils.validateJwtTokenFormat(token)){
+                return null;
             }
-            String username = tokenUtils.getUsernameFromToken(token);
-            return userCacheService.isValidToken(token,username);
+            //从JwtUtil解析token获取用户名
+            String username = tokenUtils.getUsernameFromJwtToken(token);
+            //把解析的与redis存的做对比
+            return userCacheService.isValidJwtToken(token,username)?username:null;
         }catch (Exception e){
             throw new BusinessException(401,e.getMessage());
         }
-
-
     }
 }

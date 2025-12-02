@@ -17,7 +17,7 @@ public class TokenUtils {
     private static final String SECRET_KEY = "your-secret-key";
     private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24小时
 
-    public String generateToken(String username) {
+    public String generateJwtToken(String username) {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
@@ -27,7 +27,7 @@ public class TokenUtils {
     }
 
     // 验证 JWT 的签名和过期时间
-    public boolean validateTokenFormat(String token) {
+    public boolean validateJwtTokenFormat(String token) {
         try {
             Jwts.parser()
                     .setSigningKey(SECRET_KEY)
@@ -41,7 +41,7 @@ public class TokenUtils {
     }
 
     //从JWT提取用户名
-    public String getUsernameFromToken(String token) {
+    public String getUsernameFromJwtToken(String token) {
        try {Claims claims = Jwts.parser()
                 .setSigningKey(SECRET_KEY)
                 .parseClaimsJws(token)

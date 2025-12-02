@@ -1,10 +1,13 @@
 package com.example.websocketdemo.Utils;
 
+import com.example.websocketdemo.Service.TokenValidateService;
 import com.example.websocketdemo.Service.UserCacheService;
+import com.example.websocketdemo.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
@@ -19,22 +22,40 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
     @Autowired
     UserCacheService userCacheService;
-
+    @Autowired
+    TokenValidateService tokenValidateService;
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
-        if(accessor.getCommand().equals(StompCommand.CONNECT)){
+        //CONNECT帧存信息进session
+        if(accessor.getCommand().equals(StompCommand.CONNECT)) {
             String token = accessor.getFirstNativeHeader("Token");
             log.info("WebSocket连接建立，心跳配置: {}", accessor.getHeartbeat());
             log.info("前端Websocket传来的Token:"+token);
             String username=accessor.getFirstNativeHeader("username");
             log.info("前端Websocket传来的name:"+username);
             //token方案可能需要增强
-            if (token == null || !userCacheService.isValidToken(token,username)) {
-                // 如果 Token 无效，直接抛出异常，连接会被断开
-                throw new IllegalArgumentException("无权访问：Token 无效或已过期");
+            if(token!=null){
+                String CachedUsername=tokenValidateService.validateTokenAndGetUsername(token);
+                if(CachedUsername==null){
+                    throw new BusinessException(401,"用户token不存在");
+                }
             }
+            else {
+                throw new BusinessException(401,"Websocket连接必须携带token");
+            }
+            //认证成功
+            accessor.getSessionAttributes().put("username",username);
+            accessor.getSessionAttributes().put("authenticated",true);
         }
+
+        if(requiresAuthentication(accessor.getCommand())){
+             Boolean Authenticated= (Boolean) accessor.getSessionAttributes().get("authenticated");
+             if(Authenticated==null||!Authenticated){
+                 throw new MessagingException("未认证，请先建立连接");
+             }
+        }
+
         if (accessor.getCommand() == StompCommand.DISCONNECT) {
             log.info("WebSocket连接断开: {}", accessor.getSessionId());
         }
@@ -43,8 +64,7 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private boolean requiresAuthentication(StompCommand command) {
-        return command != null && (
-                StompCommand.CONNECT.equals(command) ||
+        return (
                         StompCommand.SUBSCRIBE.equals(command) ||
                         StompCommand.SEND.equals(command) ||
                         StompCommand.MESSAGE.equals(command)
