@@ -23,7 +23,7 @@ public class RedisConfig {
         Jackson2JsonRedisSerializer<User> userSerializer = new Jackson2JsonRedisSerializer<>(User.class);
 
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(userSerializer);
+        template.setValueSerializer(new StringRedisSerializer());
         template.setHashValueSerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
         template.afterPropertiesSet();

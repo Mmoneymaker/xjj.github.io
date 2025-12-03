@@ -34,16 +34,11 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
             log.info("前端Websocket传来的Token:"+token);
             String username=accessor.getFirstNativeHeader("username");
             log.info("前端Websocket传来的name:"+username);
+            String CachedUsername=tokenValidateService.validateTokenAndGetUsername(token);
             //token方案可能需要增强
-            if(token!=null){
-                String CachedUsername=tokenValidateService.validateTokenAndGetUsername(token);
                 if(CachedUsername==null){
-                    throw new BusinessException(401,"用户token不存在");
+                    throw new MessagingException("Invalid Token");
                 }
-            }
-            else {
-                throw new BusinessException(401,"Websocket连接必须携带token");
-            }
             //认证成功
             accessor.getSessionAttributes().put("username",username);
             accessor.getSessionAttributes().put("authenticated",true);

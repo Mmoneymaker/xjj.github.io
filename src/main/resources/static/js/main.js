@@ -94,13 +94,16 @@ const ChatApp = {
         const token = this.getCookie('authToken'); // 根据你的Cookie名称调整
         console.log("后端传来的token="+token);
         this.token=token;
-
+        // --- 2. 关键修改：拼接 Token 到 WebSocket URL ---
+        const wsBaseUrl = 'ws://localhost:8080/ws';
+        // 拼接 Token 作为 URL 参数（注意编码，避免特殊字符问题）
+        const wsUrlWithToken = `${wsBaseUrl}?token=${encodeURIComponent(token)}`;
         // --- Create and activate Stomp client ---
         this.client = new StompJs.Client({
             // Use native WebSocket if brokerURL is provided; otherwise SockJS.
             // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
 
-            brokerURL: 'ws://localhost:8080/ws',
+            brokerURL:wsUrlWithToken,
             heartbeatIncoming:0,
             heartbeatOutgoing:20000,
             reconnectDelay: 0,

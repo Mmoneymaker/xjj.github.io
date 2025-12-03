@@ -7,6 +7,7 @@ import com.example.websocketdemo.Service.IUserService;
 
 import com.example.websocketdemo.Service.UserCacheService;
 import com.example.websocketdemo.Utils.CookieUtils;
+import com.example.websocketdemo.Utils.TokenUtils;
 import com.example.websocketdemo.Utils.UserValidator;
 import com.example.websocketdemo.common.Result;
 import com.example.websocketdemo.exception.BusinessException;
@@ -33,7 +34,8 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
 
     @Autowired
     private UserCacheService userCacheService;
-
+    @Autowired
+    private TokenUtils tokenUtils;
     //一致性策略采用cache-aside方法 写的时候先写进数据库，再删除缓存 读的时候先读缓存，读不到再读数据库，再把读到的写进缓存。
     @Override
     public void SaveUser(User user) {
@@ -77,7 +79,7 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
     }
 
     private void processSuccessfulLogin(User loginUser, HttpServletResponse response) {
-        String token = CookieUtils.GenerateToken();
+        String token = tokenUtils.generateJwtToken(loginUser.getUsername());
         log.info("用户登录成功: {}, token: {}", loginUser.getUsername(), token);
 
         Cookie cookie = CookieUtils.CreateCookie(token);

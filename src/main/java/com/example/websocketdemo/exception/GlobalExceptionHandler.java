@@ -25,7 +25,6 @@ public class GlobalExceptionHandler {
             logger.debug("忽略Chrome DevTools资源请求: {}", e.getMessage());
             return;
         }
-
         // 其他资源未找到异常正常记录
         logger.error("资源未找到异常: {}", e.getMessage());
     }

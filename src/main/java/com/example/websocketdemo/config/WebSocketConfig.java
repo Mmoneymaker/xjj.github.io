@@ -1,6 +1,7 @@
 package com.example.websocketdemo.config;
 
 import com.example.websocketdemo.Utils.AuthChannelInterceptor;
+import com.example.websocketdemo.Utils.AuthHandshakeInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,10 +21,13 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Autowired
     AuthChannelInterceptor authChannelInterceptor;
+    @Autowired
+    AuthHandshakeInterceptor authHandshakeInterceptor;
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
+                .addInterceptors(authHandshakeInterceptor)
                  ;
     }
 
@@ -55,11 +59,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     //这下面是注册channelInterceptor拦截器
-    @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
-     //千万不能new,new出来的没法依赖注入   registration.interceptors(new AuthChannelInterceptor());
-        registration.interceptors(authChannelInterceptor);
-    }
+//    @Override
+//    public void configureClientInboundChannel(ChannelRegistration registration) {
+//     //千万不能new,new出来的没法依赖注入   registration.interceptors(new AuthChannelInterceptor());
+//        registration.interceptors(authChannelInterceptor);
+//    }
 
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {
