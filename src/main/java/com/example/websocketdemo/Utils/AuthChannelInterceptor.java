@@ -3,6 +3,7 @@ package com.example.websocketdemo.Utils;
 import com.example.websocketdemo.Service.TokenValidateService;
 import com.example.websocketdemo.Service.UserCacheService;
 import com.example.websocketdemo.exception.BusinessException;
+import com.example.websocketdemo.model.StompPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.Message;
@@ -32,28 +33,27 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
             String token = accessor.getFirstNativeHeader("Token");
             log.info("WebSocket连接建立，心跳配置: {}", accessor.getHeartbeat());
             log.info("前端Websocket传来的Token:"+token);
-            String username=accessor.getFirstNativeHeader("username");
-            log.info("前端Websocket传来的name:"+username);
             String CachedUsername=tokenValidateService.validateTokenAndGetUsername(token);
-            //token方案可能需要增强
-                if(CachedUsername==null){
-                    throw new MessagingException("Invalid Token");
-                }
-            //认证成功
-            accessor.getSessionAttributes().put("username",username);
-            accessor.getSessionAttributes().put("authenticated",true);
+            if (CachedUsername != null) {
+                // 3. 【关键一步】设置 User Principal
+                // 只有做了这一步，convertAndSendToUser 才能找到这个人！
+                accessor.setUser(new StompPrincipal(CachedUsername));
+            } else {
+                // 验证失败，阻止连接
+                return null;
+            }
         }
 
-        if(requiresAuthentication(accessor.getCommand())){
-             Boolean Authenticated= (Boolean) accessor.getSessionAttributes().get("authenticated");
-             if(Authenticated==null||!Authenticated){
-                 throw new MessagingException("未认证，请先建立连接");
-             }
-        }
-
-        if (accessor.getCommand() == StompCommand.DISCONNECT) {
-            log.info("WebSocket连接断开: {}", accessor.getSessionId());
-        }
+//        if(requiresAuthentication(accessor.getCommand())){
+//             Boolean Authenticated= (Boolean) accessor.getSessionAttributes().get("authenticated");
+//             if(Authenticated==null||!Authenticated){
+//                 throw new MessagingException("未认证，请先建立连接");
+//             }
+//        }
+//
+//        if (accessor.getCommand() == StompCommand.DISCONNECT) {
+//            log.info("WebSocket连接断开: {}", accessor.getSessionId());
+//        }
 
         return ChannelInterceptor.super.preSend(message, channel);
     }

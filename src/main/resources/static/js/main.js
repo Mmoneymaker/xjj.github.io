@@ -139,6 +139,11 @@ const ChatApp = {
         // Subscribe to public room
         this.client.subscribe('/topic/public', (msg) => this.onMessageReceived(msg));
 
+        //2025/12/3新增
+        this.client.subscribe('/user/queue/private', (msg) => {
+            // 这里复用消息显示逻辑，或者你可以写个单独的 onPrivateMessageReceived
+            this.onMessageReceived(msg, true);
+        });
         // Announce join
         if (!this.hasJoined) {
             this.publish('/app/chat.addUser', { sender: this.username, type: 'JOIN' });
@@ -159,13 +164,33 @@ const ChatApp = {
         event?.preventDefault();
 
         const text = messageInput.value.trim();
+
+        // 假设你在 HTML 里加了一个输入框 id="receiverInput"
+        // 如果这个框里有字，就当是私聊；没字就是群聊
+        const receiverInput = document.getElementById('receiverInput');
+        const receiver = receiverInput ? receiverInput.value.trim() : null;
+
         if (!text || !this.client?.connected) return;
 
-        this.publish('/app/chat.sendMessage', {
-            sender : this.username,
-            content: text,
-            type   : 'CHAT',
-        });
+        if (receiver) {
+            // === 发送私聊 ===
+            this.publish('/app/chat.private', {
+                sender : this.username,
+                receiver: receiver, // 告诉后端发给谁
+                content: text,
+                type   : 'CHAT'
+            });
+
+            // 【可选】可以在这里把自己发的消息手动显示在屏幕上，因为私聊通常不会回推给自己
+            this.displayLocalMessage(this.username, text, true);
+
+        }else {
+            this.publish('/app/chat.sendMessage', {
+                sender: this.username,
+                content: text,
+                type: 'CHAT',
+            });
+        }
 
         messageInput.value = '';
     },
@@ -180,11 +205,19 @@ const ChatApp = {
         });
     },
 
-    onMessageReceived(message /** @type {IMessage} */) {
+    onMessageReceived(message /** @type {IMessage} */,isPrivate=false) {
         const data = JSON.parse(message.body);
 
         const li = document.createElement('li');
         const p  = document.createElement('p');
+
+
+        // 如果是私聊，给个特殊的样式，比如红色背景
+        if (isPrivate) {
+            li.style.border = "2px solid red";
+            data.content = `[私信] ${data.content}`;
+        }
+
 
         if (data.type === 'JOIN' || data.type === 'LEAVE') {
             li.classList.add('event-message');
@@ -211,7 +244,19 @@ const ChatApp = {
         messageArea.appendChild(li);
         messageArea.scrollTop = messageArea.scrollHeight;
     },
+// 【新增】本地显示自己发的私聊消息
+    displayLocalMessage(sender, content, isPrivate) {
+        const li = document.createElement('li');
+        li.classList.add('chat-message');
+        if(isPrivate) li.style.border = "2px solid red"; // 自己的私聊也标红
 
+        const p = document.createElement('p');
+        p.textContent = `(我发给别人): ${content}`;
+
+        li.appendChild(p);
+        messageArea.appendChild(li);
+        messageArea.scrollTop = messageArea.scrollHeight;
+    }
 
 };
 

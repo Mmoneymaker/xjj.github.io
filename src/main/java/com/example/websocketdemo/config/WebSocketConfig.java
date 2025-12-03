@@ -25,6 +25,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     AuthHandshakeInterceptor authHandshakeInterceptor;
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        //addEndpoint用来定义WebSocket连接端点，客户端需要通过这个端点建立WebSocket连接ws://localhost:8080/ws
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .addInterceptors(authHandshakeInterceptor)
@@ -33,12 +34,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
+        //定义客户端发送消息到服务器的目的地前缀,同时SpringWebsocket会自己在controller层的方法上套用这个前缀，不需要方法完整的写出前缀/app
         registry.setApplicationDestinationPrefixes("/app");
 
-        registry.enableSimpleBroker("/topic")
+        //定义服务器往订阅对应前缀的客户端发消息，controller方法要保证/topic前缀完整写出，前端也要保证stompClient.subscribe('/topic/public', callback);
+        registry.enableSimpleBroker("/topic","/queue")
                 .setTaskScheduler(heartBeatScheduler())
                 .setHeartbeatValue(new long[]{0,20000});  // Enables a simple in-memory broker
-
+        registry.setUserDestinationPrefix("/user");
         //   Use this for enabling a Full featured broker like RabbitMQ
         //下面的注释是集群部署的时候采用的方法即rabbitmq
         /*
@@ -59,11 +62,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     //这下面是注册channelInterceptor拦截器
-//    @Override
-//    public void configureClientInboundChannel(ChannelRegistration registration) {
-//     //千万不能new,new出来的没法依赖注入   registration.interceptors(new AuthChannelInterceptor());
-//        registration.interceptors(authChannelInterceptor);
-//    }
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+     //千万不能new,new出来的没法依赖注入   registration.interceptors(new AuthChannelInterceptor());
+        registration.interceptors(authChannelInterceptor);
+    }
 
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {
