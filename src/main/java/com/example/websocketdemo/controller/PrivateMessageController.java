@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
@@ -16,10 +17,9 @@ public class PrivateMessageController {
 
     //记得做存库处理
 
-    @MessageMapping("/chat.privateMessage")
-    public void SendPrivateMessage(@Payload PrivateMessage privateMessage) {
-           template.convertAndSendToUser(privateMessage.getSender(),"/queue/messages",privateMessage);
-
+    @MessageMapping("/chat.private")
+    public void SendPrivateMessage(@Payload PrivateMessage privateMessage, SimpMessageHeaderAccessor headerAccessor) {
+           template.convertAndSendToUser(privateMessage.getReceiver(),"/queue/private",privateMessage);
     }
 
 
