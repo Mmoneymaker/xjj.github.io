@@ -9,16 +9,32 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.messaging.simp.user.SimpUser;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class UserController {
+
+    @Autowired
+    private SimpUserRegistry userRegistry;
+
     @Autowired
     private IUserService userService;
 
+    // 新增这个接口
+    @GetMapping("/api/online-users")
+    public List<String> getOnlineUsers() {
+        return userRegistry.getUsers().stream()
+                .map(SimpUser::getName)
+                .collect(Collectors.toList());
+    }
     @PostMapping("/Registry")
     public Result<String> register(@RequestBody User user, HttpSession session) {
                userService.SaveUser(user);
