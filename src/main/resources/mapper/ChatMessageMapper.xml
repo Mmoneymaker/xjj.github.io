@@ -1,17 +1,25 @@
-<!-- ChatMessageMapper.xml -->
-<select id="getChatHistory" resultType="com.example.websocketdemo.entity.ChatMessage">
-    SELECT sender,
-    content,
-    target,
-    chat_type as chat_type,
-    create_time
-    FROM chat_message
-    WHERE chat_type = #{type}
-    AND (
-    (sender = #{currentUser} AND target = #{target})
-    OR
-    (sender = #{target} AND target = #{currentUser})
-    )
-    ORDER BY create_time DESC
-    LIMIT #{limit}
-</select>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.websocketdemo.mapper.ChatMessageMapper">
+
+    <select id="getChatHistory" resultType="com.example.websocketdemo.model.ChatMessage">
+        SELECT
+            sender,
+            content,
+            target,
+            chat_type,
+            create_time
+        FROM chat_message
+        WHERE chat_type = #{type}
+          AND (
+            (sender = #{currentUser} AND target = #{target})
+                OR
+            (sender = #{target} AND target = #{currentUser})
+            )
+        ORDER BY create_time DESC
+            LIMIT #{limit}
+    </select>
+
+</mapper>

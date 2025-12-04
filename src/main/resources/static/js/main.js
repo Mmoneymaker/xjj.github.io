@@ -1,21 +1,9 @@
 'use strict';
 
-// ======== Chat Client (ES2025) using @stomp/stompjs ========
-// This refactor replaces the legacy Stomp.over(SockJS) API
-// with the modern Client class from @stomp/stompjs.
-// -----------------------------------------------------------
-// 1. Works with both native WebSocket *and* SockJS fallback.
-// 2. Uses ES modules (import) & modern JS syntax (const/let, arrow fn).
-// 3. Encapsulates app logic in a simple ChatApp object so you can
-//    extend / reuse easily (e.g. switch endpoint, add private rooms).
-// ===========================================================
+// ====================== 完整 main.js（纯私聊版） ======================
 
-// Optional SockJS fallback — comment‑out if you only need pure WS.
-
-/* ------------------------------------------------------------------
- * Element references
- * ----------------------------------------------------------------*/
 const $ = (selector) => document.querySelector(selector);
+
 const usernamePage      = $('#username-page');
 const chatPage          = $('#chat-page');
 const usernameForm      = $('#usernameForm');
@@ -23,333 +11,286 @@ const messageForm       = $('#messageForm');
 const messageInput      = $('#message');
 const messageArea       = $('#messageArea');
 const connectingElement = $('.connecting');
+const userList          = $('#userList');          // 新增：在线用户列表
+const chatHeaderTitle   = $('.chat-header h2');    // 聊天窗口标题
 
-/* ------------------------------------------------------------------
- * Theme helpers
- * ----------------------------------------------------------------*/
-const colors = [
-    '#2196F3', '#32c787', '#00BCD4', '#ff5652',
-    '#ffc107', '#ff85af', '#FF9800', '#39bbb0'
-];
+// 头像颜色
+const colors = ['#2196F3', '#32c787', '#00BCD4', '#ff5652', '#ffc107', '#ff85af', '#FF9800', '#39bbb0'];
 const getAvatarColor = (name = '') => {
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = 31 * hash + name.charCodeAt(i);
     return colors[Math.abs(hash % colors.length)];
 };
 
-/* ------------------------------------------------------------------
- * Chat application object
- * ----------------------------------------------------------------*/
 const ChatApp = {
     username: null,
-    client  : /** @type {Client|null} */ (null),
+    client: null,
+    token: null,
+    currentTarget: null,   // 当前正在聊天的对象（用户名）
 
-    /* --------------------------- UI transitions --------------------------- */
-    showChat()   { usernamePage.classList.add('hidden'); chatPage.classList.remove('hidden'); },
-    showLogin()  { chatPage.classList.add('hidden');   usernamePage.classList.remove('hidden'); },
-    showStartChat(Username){
-        document.getElementById("submission").classList.remove('hidden');
-        document.getElementById("rbutton").classList.add('hidden');
-        document.getElementById("name").classList.add('hidden');
-        document.getElementById("password").classList.add('hidden');
-        document.querySelector("h1").innerHTML="Welcome:"+Username;
-    },
-     getCookie(name) {
-    // 1. 获取所有cookie
-    const allCookies = document.cookie;
-
-    // 2. 按分号分割成数组
-    const cookies = allCookies.split('; ');
-
-    // 3. 遍历查找目标cookie
-    for (let cookie of cookies) {
-        const [cookieName, cookieValue] = cookie.split('=');
-        if (cookieName === name) {
-            return cookieValue;
+    // ==================== Cookie 工具 ====================
+    getCookie(name) {
+        const cookies = document.cookie.split('; ');
+        for (let cookie of cookies) {
+            const [key, value] = cookie.split('=');
+            if (key === name) return decodeURIComponent(value);
         }
-    }
-    return null;
-     },
-    handleConnectionError() {
-        console.log("连接错误，尝试重连...");
-        setTimeout(() => {
-            if (this.username && this.token) {
-                this.client.activate();
-            }
-        }, 5000);
+        return null;
     },
-    handleDisconnection() {
-        console.log("连接断开处理");
-        connectingElement.textContent = '连接已断开，正在重连...';
-    },
-    /* --------------------------- Connection ------------------------------ */
+
+    // ==================== 连接 WebSocket ====================
     connect(event) {
         event?.preventDefault();
+
         this.username = $('#name').value.trim();
-        if (!this.username) return;
+        if (!this.username) return alert('请输入用户名');
 
-        this.showChat();
-        // 关键修改：从Cookie读取token，而不是localStorage
-        console.log("Cookie是",document.cookie);
-        const token = this.getCookie('authToken'); // 根据你的Cookie名称调整
-        console.log("后端传来的token="+token);
-        this.token=token;
-        // --- 2. 关键修改：拼接 Token 到 WebSocket URL ---
-        const wsBaseUrl = 'ws://localhost:8080/ws';
-        // 拼接 Token 作为 URL 参数（注意编码，避免特殊字符问题）
-        const wsUrlWithToken = `${wsBaseUrl}?token=${encodeURIComponent(token)}`;
-        // --- Create and activate Stomp client ---
+        usernamePage.classList.add('hidden');
+        chatPage.classList.remove('hidden');
+
+        const token = this.getCookie('authToken');
+        if (!token) return alert('未找到登录凭证，请重新登录');
+
+        const wsUrl = `ws://localhost:8080/ws?token=${encodeURIComponent(token)}`;
+
         this.client = new StompJs.Client({
-            // Use native WebSocket if brokerURL is provided; otherwise SockJS.
-            // brokerURL: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+            brokerURL: wsUrl,
+            heartbeatIncoming: 0,
+            heartbeatOutgoing: 20000,
+            reconnectDelay: 5000,
+            debug: str => console.log('[STOMP]', str),
 
-            brokerURL:wsUrlWithToken,
-            heartbeatIncoming:0,
-            heartbeatOutgoing:20000,
-            reconnectDelay: 0,
-            debug: (str) => console.log(str),
-            onWebSocketClose:(event)=>{
-                console.log("连接断开", event);
-                this.hasJoined = false; // 重置标记
+            connectHeaders: {
+                Token: token
             },
-            onConnect   : (frame) => this.onConnected(frame),
-            onStompError: (frame) => {
-                console.error("STOMP错误:", frame);
-                // this.handleConnectionError();
-                },
-            onDisconnect: (frame) => {
-                console.log("STOMP断开", frame);
-                this.hasJoined = false;
-            },
-            connectHeaders:{
-                Token:token,
-                username:this.username
-            }
+
+            onConnect: (frame) => this.onConnect(frame),
+            onStompError: (frame) => console.error('STOMP Error', frame),
+            onWebSocketClose: () => connectingElement.textContent = '连接断开，正在重连...',
         });
+
         this.client.activate();
     },
 
-    disconnect() {
-        this.client?.deactivate();
-        this.showLogin();
-    },
+    // ==================== 连接成功后执行 ====================
+    onConnect(frame) {
+        console.log('WebSocket 已连接', frame);
+        connectingElement.textContent = '已连接';
 
-    /* --------------------------- Callbacks ------------------------------- */
-    onConnected(frame) {
-        // Subscribe to public room
-        this.client.subscribe('/topic/public', (msg) => this.onMessageReceived(msg));
-
-        //2025/12/3新增
-        this.client.subscribe('/user/queue/private', (msg) => {
-            // 这里复用消息显示逻辑，或者你可以写个单独的 onPrivateMessageReceived
-            this.onMessageReceived(msg, true);
+        // 1. 订阅私人消息（所有别人发给我的、私聊消息）
+        this.client.subscribe('/user/queue/messages', message => {
+            this.onMessageReceived(message);
         });
-        // Announce join
-        if (!this.hasJoined) {
-            this.publish('/app/chat.addUser', { sender: this.username, type: 'JOIN' });
-            this.hasJoined = true;
-        }
 
-        connectingElement.classList.add('hidden');
+        // 2. 订阅历史消息返回
+        this.client.subscribe('/user/queue/history', message => {
+            const history = JSON.parse(message.body);
+            messageArea.innerHTML = '';
+            // 数据库倒序查的，要正序显示
+            history.reverse().forEach(msg => {
+                this.onMessageReceived({ body: JSON.stringify(msg) });
+            });
+        });
+
+        // 3. 加载在线用户列表（你后端要提供 /api/online-users 接口）
+        this.loadOnlineUsers();
+
+        // 【建议】做一个轮询，每 5 秒刷新一次用户列表，防止有人掉线了你不知道
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+        this.refreshInterval = setInterval(() => this.loadOnlineUsers(), 2000);
     },
 
-    onError(frame) {
-        console.error('Broker error', frame);
-        connectingElement.textContent = 'Could not connect. Please refresh to try again!';
-        connectingElement.style.color = 'red';
+    // ==================== 加载在线用户列表 ====================
+    loadOnlineUsers() {
+        fetch('/api/online-users', { credentials: 'include' })
+            .then(r => r.json())
+            .then(users => {
+                userList.innerHTML = '';
+                users.forEach(u => {
+                    if (u === this.username) return;
+
+                    const li = document.createElement('li');
+                    li.textContent = u;
+                    li.style.padding = '12px 15px';
+                    li.style.cursor = 'pointer';
+                    li.style.borderBottom = '1px solid #eee';
+                    li.onclick = () => this.openPrivateChat(u);
+                    userList.appendChild(li);
+                });
+            })
+            .catch(() => {
+                userList.innerHTML = '<li style="padding:15px;color:#999;">加载用户列表失败</li>';
+            });
     },
 
-    /* --------------------------- Messaging ------------------------------- */
-    sendMessage(event) {
-        event?.preventDefault();
-
-        const text = messageInput.value.trim();
-
-        // 假设你在 HTML 里加了一个输入框 id="receiverInput"
-        // 如果这个框里有字，就当是私聊；没字就是群聊
-        const receiverInput = document.getElementById('receiverInput');
-        const receiver = receiverInput ? receiverInput.value.trim() : null;
-
-        if (!text || !this.client?.connected) return;
-
-        if (receiver) {
-            // === 发送私聊 ===
-            this.publish('/app/chat.private', {
-                sender : this.username,
-                receiver: receiver, // 告诉后端发给谁
-                content: text,
-                type   : 'CHAT'
-            });
-
-            // 【可选】可以在这里把自己发的消息手动显示在屏幕上，因为私聊通常不会回推给自己
-            this.displayLocalMessage(this.username, text, true);
-
-        }else {
-            this.publish('/app/chat.sendMessage', {
-                sender: this.username,
-                content: text,
-                type: 'CHAT',
-            });
+    // ==================== 打开私聊窗口 ====================
+    openPrivateChat(targetUsername) {
+        if (targetUsername === this.username) {
+            alert('不能和自己聊天哦~');
+            return;
         }
 
+        this.currentTarget = targetUsername;
+        chatHeaderTitle.textContent = `与 ${targetUsername} 的聊天`;
+        messageArea.innerHTML = '<li class="event-message"><p>正在加载历史消息...</p></li>';
+
+        // 请求历史消息
+        this.client.publish({
+            destination: '/app/chat.history',
+            body: JSON.stringify({
+                target: targetUsername,
+                Chattype: 'PRIVATE'
+            })
+        });
+    },
+
+    // ==================== 发送消息 ====================
+    sendMessage(e) {
+        e.preventDefault();
+        const content = messageInput.value.trim();
+        if (!content) return;
+        if (!this.currentTarget) {
+            alert('请先选择一个聊天对象');
+            return;
+        }
+
+        const msg = {
+            // sender 故意不传！由后端强制写入，防止伪造
+            content: content,
+            target: this.currentTarget,
+            chat_type: 'PRIVATE'
+        };
+
+        this.client.publish({
+            destination: '/app/chat.send',
+            body: JSON.stringify(msg)
+        });
+        // 本地立即显示自己发的消息
+        // this.displayLocalMessage(content);
         messageInput.value = '';
     },
 
-    publish(destination, bodyObj) {
-        this.client?.publish({
-            destination,
-            body: JSON.stringify(bodyObj),
-            headers:{
-                "Token": this.token
-            }
-        });
+    // ==================== 显示自己发的消息（本地即时显示） ====================
+    displayLocalMessage(content) {
+        const li = document.createElement('li');
+        li.className = 'chat-message my-message';
+
+        const p = document.createElement('p');
+        p.textContent = content;
+        li.appendChild(p);
+        messageArea.appendChild(li);
+        messageArea.scrollTop = messageArea.scrollHeight;
     },
 
-    onMessageReceived(message /** @type {IMessage} */,isPrivate=false) {
+    // ==================== 接收消息并显示 ====================
+    onMessageReceived(message) {
         const data = JSON.parse(message.body);
 
         const li = document.createElement('li');
-        const p  = document.createElement('p');
+        const p = document.createElement('p');
+        p.textContent = data.content;
 
-
-        // 如果是私聊，给个特殊的样式，比如红色背景
-        if (isPrivate) {
-            li.style.border = "2px solid red";
-            data.content = `[私信] ${data.content}`;
-        }
-
-
-        if (data.type === 'JOIN' || data.type === 'LEAVE') {
-            li.classList.add('event-message');
-            p.textContent = `${data.sender} ${data.type === 'JOIN' ? 'joined' : 'left'}!`;
+        if (data.sender === this.username) {
+            // 自己发的消息（右边对齐）
+            li.className = 'chat-message my-message';
         } else {
-            li.classList.add('chat-message');
+            // 别人发的消息（左边对齐）
+            li.className = 'chat-message';
 
-            // Avatar
             const avatar = document.createElement('i');
-            avatar.textContent = data.sender?.charAt(0).toUpperCase() ?? '?';
+            avatar.textContent = data.sender.charAt(0).toUpperCase();
             avatar.style.backgroundColor = getAvatarColor(data.sender);
             li.appendChild(avatar);
 
-            // Username
             const nameSpan = document.createElement('span');
             nameSpan.textContent = data.sender;
+            nameSpan.style.fontWeight = '600';
             li.appendChild(nameSpan);
-
-            // Message body
-            p.textContent = data.content;
         }
 
         li.appendChild(p);
         messageArea.appendChild(li);
         messageArea.scrollTop = messageArea.scrollHeight;
     },
-// 【新增】本地显示自己发的私聊消息
-    displayLocalMessage(sender, content, isPrivate) {
-        const li = document.createElement('li');
-        li.classList.add('chat-message');
-        if(isPrivate) li.style.border = "2px solid red"; // 自己的私聊也标红
 
-        const p = document.createElement('p');
-        p.textContent = `(我发给别人): ${content}`;
-
-        li.appendChild(p);
-        messageArea.appendChild(li);
-        messageArea.scrollTop = messageArea.scrollHeight;
+    // ==================== 断开连接 ====================
+    disconnect() {
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+        if (this.client) this.client.deactivate();
     }
-
 };
+async function register(event) {
+    event?.preventDefault();
 
+    const username = document.getElementById("name").value.trim();
+    const password = document.getElementById("password").value;
 
-async function register(event){
-    event.preventDefault();
-    const username=document.getElementById("name").value;
-    const password=document.getElementById("password").value;
-
-    let response=await fetch(
-        "/Registry",
-        {
-            method:"POST",
-            headers:{"Content-Type":"application/json",
-            "testheaders":"xujunjie"},
-            body:JSON.stringify({username:username,password:password}),
-            credentials:"include",
-            mode:"cors"
-        }
-    )
-    if(response.status==403){
-        return alert("用户已经注册");
+    if (!username || !password) {
+        return alert("用户名和密码不能为空");
     }
 
-    const data=await response.text();
+    const response = await fetch("/Registry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+        credentials: "include",
+        mode: "cors"
+    });
 
-    // ChatApp.showStartChat(username);
+    const text = await response.text();
 
-    return alert(data);
-
-};
-
-async function login(event){
-    event.preventDefault();
-    const username=document.getElementById("name").value;
-    const password=document.getElementById("password").value;
-    let response = await fetch(
-        "/Login",
-        {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({username:username,password:password}),
-            credentials:"include",
-            mode:"cors"
-        }
-    )
-    if(!response.ok){
-        return alert("用户不存在或者密码错误");
+    if (response.ok) {
+        alert("注册成功！请登录");
+    } else {
+        alert(text || "注册失败（可能用户已存在）");
     }
+}
+
+async function login(event) {
+    event?.preventDefault();
+    const username = document.getElementById("name").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (!username || !password) return alert("请输入用户名和密码");
+
+    const response = await fetch("/Login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+        credentials: "include" // 必须让浏览器处理 Cookie
+    });
+
 
     const result=await response.json();
     if(result.code!==200){
         return alert(result.msg||"登陆失败")
     }
-    ChatApp.showStartChat(username);
-    return alert("登陆成功");
+    // 修改处：后端返回的是 JSON 或者是空，Token 实际上是在 Cookie 里的
+    // 不需要 const token = await response.text();
+
+    alert("登陆成功！");
+
+    // ChatApp 会自己去读 Cookie 里的 authToken
+    // 只要你的 cookie 名字对得上 (getCookie('authToken'))
+
+    ChatApp.username = username;
+    usernamePage.classList.add('hidden');
+    chatPage.classList.remove('hidden');
+
+    ChatApp.connect();
+    setTimeout(() => ChatApp.loadOnlineUsers(), 1500);
 }
 
+// ====================== 事件绑定 ======================
+// document.getElementById('submission').addEventListener('click', e => ChatApp.connect(e));
+messageForm.addEventListener('submit', e => ChatApp.sendMessage(e));
 
-/* ------------------------------------------------------------------
- * Event bindings
- * ----------------------------------------------------------------*/
-// usernameForm.addEventListener('submit', (e) => ChatApp.connect(e), true);
-messageForm.addEventListener('submit', (e) => ChatApp.sendMessage(e), true);
-document.getElementById("rbutton").addEventListener('click',register,true);
-document.getElementById("submission").addEventListener('click',(e)=>ChatApp.connect(e));
-// Optional: neat cleanup when user navigates away
-window.addEventListener('beforeunload', () => ChatApp.disconnect());
-document.getElementById("login").addEventListener('click',login,true);
-document.getElementById("testToken").addEventListener('click',async function(e){
-       e.preventDefault();
-       let response=await fetch(
-           "/TestToken",
-           {
-               method:"GET",
-               credentials:"include",
-               mode:"cors"
-           }
-       );
-       var cookie=document.cookie;
-       console.log("Test函数被调用了");
-       console.log(cookie);
-       return alert("调用成功test方法");
+// 登录、注册、测试按钮保持不变（你原来的代码）
+document.getElementById('rbutton').addEventListener('click', register, true);
+document.getElementById('login').addEventListener('click', login, true);
+document.getElementById('testToken').addEventListener('click', async () => {
+    // ...你原来的 testToken 代码
 });
-/* ------------------------------------------------------------------
- * Notes
- * ------------------------------------------------------------------
- * 1. You can switch between pure WebSocket and SockJS by toggling
- *    brokerURL vs webSocketFactory config above.
- * 2. If you bundle with Vite/Webpack, remember to install the deps:
- *      npm i @stomp/stompjs sockjs-client
- * 3. To use without a bundler, load UMD builds:
- *      <script src="/lib/sockjs.min.js"></script>
- *      <script src="/lib/stomp.umd.js"></script>
- *      <script type="module" src="chat-client.js"></script>
- * ----------------------------------------------------------------*/
+
+// 页面关闭时断开
+window.addEventListener('beforeunload', () => ChatApp.disconnect());

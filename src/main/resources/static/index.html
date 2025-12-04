@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+      <meta charset="UTF-8">   <!-- 加上这行就行了！ -->
       <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
       <title>Spring Boot WebSocket Chat Application | CalliCoder</title>
       <link rel="stylesheet" href="/css/main.css" />
@@ -38,29 +39,27 @@
     </div>
 
 
+    <!-- 把原来的 #chat-page 替换成下面这个布局 -->
     <div id="chat-page" class="hidden">
-        <div class="chat-container">
-            <div class="chat-header">
-                <h2>Spring WebSocket Chat Demo</h2>
+        <div style="display:flex; height:100%;">
+            <!-- 左侧：在线用户列表 -->
+            <div style="width:260px; background:#f8f9fa; border-right:1px solid #ddd; overflow-y:auto;">
+                <h3 style="margin:0; padding:15px; background:#128ff2; color:white; text-align:center;">在线用户</h3>
+                <ul id="userList" style="list-style:none; padding:0; margin:0;"></ul>
             </div>
-            <div class="connecting">
-                Connecting...
-            </div>
-            <ul id="messageArea">
 
-            </ul>
-            <form id="messageForm" name="messageForm" nameForm="messageForm">
-                <div class="form-group">
-                    <div class="input-group clearfix">
-                        <!-- 新增接收人输入框 -->
-                        <input type="text" id="receiverInput" placeholder="receiver(send to everyone if empty)" class="form-control" style="width: 30%; float: left; margin-right: 5px;">
-
-                        <!-- 原有的消息输入框 -->
-                        <input type="text" id="message" placeholder="Type a message..." autocomplete="off" class="form-control"/>
-                        <button type="submit" class="primary">Send</button>
+            <!-- 右侧：聊天窗口 -->
+            <div style="flex:1; display:flex; flex-direction:column;">
+                <div class="chat-header"><h2>选择一个用户开始聊天</h2></div>
+                <div class="connecting">连接中...</div>
+                <ul id="messageArea"></ul>
+                <form id="messageForm" style="padding:20px; background:#fff;">
+                    <div class="input-group">
+                        <input type="text" id="message" placeholder="输入消息..." autocomplete="off" class="form-control"/>
+                        <button type="submit" class="primary">发送</button>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 

@@ -27,15 +27,17 @@ public class NewChatController {
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload ChatMessage chatMessage, @Header(value="Token",required=false) String token
             , SimpMessageHeaderAccessor headerAccessor) {
-        /*前端如果不带sender，
-        * String sender = (String) headerAccessor.getSessionAttributes().get("username");
-        msg.setSender(sender);
-        * */
+     //前端不带sender
+        String sender = (String) headerAccessor.getSessionAttributes().get("user");
+        if (sender != null) {
+            chatMessage.setSender(sender);
+        }
+
        //根据消息是私聊还是群聊，将消息转发回去
         //这里我在想是否得做个提醒，比如有人发了消息，但是由于后面出错，没收到，但库里有
         messageSaveService.save(chatMessage);
         if("PRIVATE".equals(chatMessage.getChat_type().toString())){
-            template.convertAndSendToUser(chatMessage.getTarget(),"/queue/private", chatMessage);
+            template.convertAndSendToUser(chatMessage.getTarget(),"/queue/messages", chatMessage);
             template.convertAndSendToUser(chatMessage.getSender(), "/queue/messages", chatMessage);
 
         }else if("PUBLIC".equals(chatMessage.getChat_type().toString())){
@@ -47,22 +49,23 @@ public class NewChatController {
 
 
 
-    @MessageMapping("/chat.addUser")
-    @SendTo("/topic/public")
-    public ChatMessage addUser(@Payload ChatMessage chatMessage,
-                               SimpMessageHeaderAccessor headerAccessor) {
-        // Add username in web socket session
-//        headerAccessor.getSessionAttributes().put("username", chatMessage.getSender());
-        return chatMessage;
-    }
+//    @MessageMapping("/chat.addUser")
+//    @SendTo("/topic/public")
+//    public ChatMessage addUser(@Payload ChatMessage chatMessage,
+//                               SimpMessageHeaderAccessor headerAccessor) {
+//        // Add username in web socket session
+////        headerAccessor.getSessionAttributes().put("username", chatMessage.getSender());
+//        return chatMessage;
+//    }
 
-
+    @MessageMapping("/chat.history")
     public void loadHistory(@Payload Map<String,String> bodyObj,SimpMessageHeaderAccessor headerAccessor) {
         //前端要发target和type(私人还是群聊)
+        String currentUser=(String) headerAccessor.getSessionAttributes().get("user");
         String target=bodyObj.get("target");
         String Chattype=bodyObj.get("Chattype");
          // select * from chat_message where "sender"=currentUser,"target"=target,"chat_type"=Chattype
-        List<ChatMessage> history = messageSaveService.LoadHistory(
+        List<ChatMessage> history = messageSaveService.getHistory(
                 currentUser,
                 target,
                 Chattype
