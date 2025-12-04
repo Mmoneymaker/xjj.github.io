@@ -1,0 +1,17 @@
+<!-- ChatMessageMapper.xml -->
+<select id="getChatHistory" resultType="com.example.websocketdemo.entity.ChatMessage">
+    SELECT sender,
+    content,
+    target,
+    chat_type as chat_type,
+    create_time
+    FROM chat_message
+    WHERE chat_type = #{type}
+    AND (
+    (sender = #{currentUser} AND target = #{target})
+    OR
+    (sender = #{target} AND target = #{currentUser})
+    )
+    ORDER BY create_time DESC
+    LIMIT #{limit}
+</select>

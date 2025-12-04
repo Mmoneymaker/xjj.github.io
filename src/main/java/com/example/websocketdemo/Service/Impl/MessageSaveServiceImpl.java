@@ -16,6 +16,7 @@ import  com.example.websocketdemo.exception.BusinessException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 @Slf4j
 @Service
@@ -32,13 +33,20 @@ public class MessageSaveServiceImpl implements MessageSaveService {
         log.info("发送者是{}",message.getSender());
         ChatMessagePO messagePO = new ChatMessagePO();
         messagePO.setSender(message.getSender());
-        messagePO.setType(message.getType().name());
         messagePO.setContent(message.getContent());
-        messagePO.setCreateTime(LocalDateTime.now());
-
+        messagePO.setCreate_time(LocalDateTime.now());
+        messagePO.setTarget(message.getTarget());
+        //ChatType是private还是group
+        messagePO.setChatType(message.getChat_type().toString());
         if(chatMessageMapper.insert(messagePO)!=1){
             throw new BusinessException(401,"落库失败");
         }
         log.info("消息已异步落库，耗时: {}ms", System.currentTimeMillis() - start);
     }
+
+    @Override
+    public List<ChatMessage> getHistory(String currentUser, String target, String type, int limit) {
+        return chatMessageMapper.getChatHistory(currentUser, target, type, limit);
+    }
+
 }
