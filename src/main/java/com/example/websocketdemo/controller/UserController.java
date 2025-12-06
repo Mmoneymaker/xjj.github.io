@@ -28,13 +28,13 @@ public class UserController {
     @Autowired
     private IUserService userService;
 
-    // 新增这个接口
-    @GetMapping("/api/online-users")
-    public List<String> getOnlineUsers() {
-        return userRegistry.getUsers().stream()
-                .map(SimpUser::getName)
-                .collect(Collectors.toList());
-    }
+//    // 新增这个接口 替换成了websocketEventListener的事件触发形式,并做了分布式处理
+//    @GetMapping("/api/online-users")
+//    public List<String> getOnlineUsers() {
+//        return userRegistry.getUsers().stream()
+//                .map(SimpUser::getName)
+//                .collect(Collectors.toList());
+//    }
     @PostMapping("/Registry")
     public Result<String> register(@RequestBody User user, HttpSession session) {
                userService.SaveUser(user);
