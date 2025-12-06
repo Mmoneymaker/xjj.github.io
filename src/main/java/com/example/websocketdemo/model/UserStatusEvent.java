@@ -17,12 +17,12 @@ public class UserStatusEvent {
 
     private String username;    // 可展示的名称
     private StatusType status;
-    private Long logintime;
+    private Long timestamp;
     private String avatar;      // 头像URL（可选）
 
     public UserStatusEvent(String username, StatusType status) {
         this.username = username;
         this.status = status;
-        this.logintime = System.currentTimeMillis();
+        this.timestamp = System.currentTimeMillis();
     }
 }

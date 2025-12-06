@@ -299,3 +299,184 @@ button.accent {
         font-size: 1.1em;
     }
 }
+/* ============== 事件驱动新增样式 ============== */
+
+/* 状态指示器 */
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.online {
+    background: #52c41a;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.me {
+    background: #1890ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.status-indicator.offline {
+    background: #d9d9d9;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 用户状态通知Toast */
+.user-status-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 9999;
+    animation: slideInRight 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    max-width: 280px;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.user-status-toast[data-type="online"] {
+    background: rgba(82, 196, 26, 0.95);
+    color: white;
+    border-left: 4px solid #389e0d;
+}
+
+.user-status-toast[data-type="offline"] {
+    background: rgba(250, 140, 22, 0.95);
+    color: white;
+    border-left: 4px solid #d46b08;
+}
+
+/* 进入动画 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%) translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 退出动画 */
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0) translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%) translateY(-20px);
+        opacity: 0;
+    }
+}
+
+/* 未读消息徽章 */
+.unread-badge {
+    background: linear-gradient(135deg, #ff4d4f, #ff7875);
+    color: white;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(255, 77, 79, 0.3);
+    animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(255, 77, 79, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0); }
+}
+
+/* 用户列表项悬停效果 */
+#userList li {
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    margin: 2px 8px;
+}
+
+#userList li:hover {
+    background: linear-gradient(135deg, #e6f7ff, #bae7ff) !important;
+    transform: translateX(3px);
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
+/* 用户列表中的"我"的样式 */
+#userList li[data-username="me"] {
+    background: linear-gradient(135deg, #f0f8ff, #d1e9ff);
+    border: 1px solid #91d5ff;
+    margin: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(24, 144, 255, 0.15);
+}
+
+/* 连接状态指示 */
+.connecting {
+    font-size: 14px;
+    padding: 8px 15px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f0f0f0;
+}
+
+/* 用户列表标题增强 */
+#userList + h3 {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 15px !important;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #128ff2, #1a6bc4) !important;
+    box-shadow: 0 2px 10px rgba(18, 143, 242, 0.3);
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 768px) {
+    .user-status-toast {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        font-size: 13px;
+    }
+
+    .status-indicator {
+        width: 6px;
+        height: 6px;
+    }
+}

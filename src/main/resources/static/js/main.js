@@ -22,11 +22,89 @@ const getAvatarColor = (name = '') => {
     return colors[Math.abs(hash % colors.length)];
 };
 
+// ==================== 用户状态管理器（新增，只改这部分）====================
+class UserStatusManager {
+    constructor(client, currentUsername) {
+        this.client = client;
+        this.currentUsername = currentUsername;
+        this.onlineUsers = new Set(); // 直接用Set，自动去重
+        this.onListUpdated = null;
+    }
+
+    // 初始化订阅
+    initialize() {
+        // 只订阅一个频道：在线状态
+        this.subscription = this.client.subscribe(
+            '/topic/online-status',
+            (message) => this.handleStatusMessage(message)
+        );
+
+        console.log('用户状态管理器已初始化，等待在线列表...');
+        return this;
+    }
+
+    // 处理状态消息
+    handleStatusMessage(message) {
+        try {
+            const data = JSON.parse(message.body);
+
+            if (data.type === 'ONLINE_LIST') {
+                this.processOnlineList(data.users);
+            }
+        } catch (e) {
+            console.error('解析状态消息失败:', e, '原始数据:', message.body);
+        }
+    }
+
+    // 处理在线列表
+    processOnlineList(users) {
+        // 清空当前集合
+        this.onlineUsers.clear();
+
+        // 添加所有用户
+        users.forEach(user => {
+            if (user.username) {
+                this.onlineUsers.add(user.username);
+            }
+        });
+
+        console.log('收到在线列表，共', this.onlineUsers.size, '人在线');
+
+        // 触发UI更新
+        if (this.onListUpdated) {
+            this.onListUpdated(this.getOnlineList());
+        }
+    }
+
+    // 获取在线列表（排序后）
+    getOnlineList() {
+        return Array.from(this.onlineUsers)
+            .sort((a, b) => {
+                // 自己排在最前面
+                if (a === this.currentUsername) return -1;
+                if (b === this.currentUsername) return 1;
+                // 其他人按字母排序
+                return a.localeCompare(b);
+            });
+    }
+
+    // 清理
+    destroy() {
+        if (this.subscription) {
+            this.subscription.unsubscribe();
+        }
+        this.onlineUsers.clear();
+        console.log('用户状态管理器已销毁');
+    }
+}
+
 const ChatApp = {
     username: null,
     client: null,
     token: null,
     currentTarget: null,   // 当前正在聊天的对象（用户名）
+    statusManager: null,   // 新增：状态管理器
+    refreshInterval: null, // 保留但不再用于轮询用户列表
 
     // ==================== Cookie 工具 ====================
     getCookie(name) {
@@ -39,6 +117,7 @@ const ChatApp = {
     },
 
     // ==================== 连接 WebSocket ====================
+    // 保持你的原有代码完全不变
     connect(event) {
         event?.preventDefault();
 
@@ -51,6 +130,7 @@ const ChatApp = {
         const token = this.getCookie('authToken');
         if (!token) return alert('未找到登录凭证，请重新登录');
 
+        // 保持你的url不变
         const wsUrl = `ws://localhost:8080/ws?token=${encodeURIComponent(token)}`;
 
         this.client = new StompJs.Client({
@@ -60,6 +140,7 @@ const ChatApp = {
             reconnectDelay: 5000,
             debug: str => console.log('[STOMP]', str),
 
+            // 保持你的connectHeaders不变
             connectHeaders: {
                 Token: token
             },
@@ -73,16 +154,20 @@ const ChatApp = {
     },
 
     // ==================== 连接成功后执行 ====================
+    // 只在这里添加状态管理器初始化，其他保持原有
     onConnect(frame) {
         console.log('WebSocket 已连接', frame);
         connectingElement.textContent = '已连接';
 
-        // 1. 订阅私人消息（所有别人发给我的、私聊消息）
+        // 1. 【新增】初始化状态管理器（替换轮询）
+        this.initializeStatusManager();
+
+        // 2. 订阅私人消息（所有别人发给我的、私聊消息）- 保持原有
         this.client.subscribe('/user/queue/messages', message => {
             this.onMessageReceived(message);
         });
 
-        // 2. 订阅历史消息返回
+        // 3. 订阅历史消息返回 - 保持原有
         this.client.subscribe('/user/queue/history', message => {
             const history = JSON.parse(message.body);
             messageArea.innerHTML = '';
@@ -92,38 +177,103 @@ const ChatApp = {
             });
         });
 
-        // 3. 加载在线用户列表（你后端要提供 /api/online-users 接口）
-        this.loadOnlineUsers();
+        // 4. 【移除】原来的轮询代码，用事件驱动替代
+        // if (this.refreshInterval) clearInterval(this.refreshInterval);
+        // this.refreshInterval = setInterval(() => this.loadOnlineUsers(), 2000);
 
-        // 【建议】做一个轮询，每 5 秒刷新一次用户列表，防止有人掉线了你不知道
-        if (this.refreshInterval) clearInterval(this.refreshInterval);
-        this.refreshInterval = setInterval(() => this.loadOnlineUsers(), 2000);
+        console.log('所有订阅已完成');
     },
 
-    // ==================== 加载在线用户列表 ====================
-    loadOnlineUsers() {
-        fetch('/api/online-users', { credentials: 'include' })
-            .then(r => r.json())
-            .then(users => {
-                userList.innerHTML = '';
-                users.forEach(u => {
-                    if (u === this.username) return;
+    // ==================== 初始化状态管理器（新增）====================
+    initializeStatusManager() {
+        // 清理旧的
+        if (this.statusManager) {
+            this.statusManager.destroy();
+        }
 
-                    const li = document.createElement('li');
-                    li.textContent = u;
-                    li.style.padding = '12px 15px';
-                    li.style.cursor = 'pointer';
-                    li.style.borderBottom = '1px solid #eee';
-                    li.onclick = () => this.openPrivateChat(u);
-                    userList.appendChild(li);
-                });
-            })
-            .catch(() => {
-                userList.innerHTML = '<li style="padding:15px;color:#999;">加载用户列表失败</li>';
-            });
+        // 创建新的
+        this.statusManager = new UserStatusManager(this.client, this.username);
+
+        // 注册回调
+        this.statusManager.onListUpdated = (onlineList) => {
+            this.renderUserList(onlineList);
+        };
+
+        // 启动
+        this.statusManager.initialize();
+
+        // 更新在线用户标题
+        this.updateOnlineCount(0);
     },
 
-    // ==================== 打开私聊窗口 ====================
+    // ==================== 更新在线人数显示 ====================
+    updateOnlineCount(count) {
+        const title = $('#onlineUsersTitle');
+        if (title) {
+            title.textContent = `在线用户 (${count})`;
+        }
+    },
+
+    // ==================== 渲染完整用户列表 ====================
+    renderUserList(onlineList) {
+        // 清空列表
+        userList.innerHTML = '';
+
+        if (onlineList.length === 0) {
+            const emptyLi = document.createElement('li');
+            emptyLi.textContent = '暂无在线用户';
+            emptyLi.style.cssText = 'padding:15px;color:#999;font-style:italic;text-align:center;';
+            userList.appendChild(emptyLi);
+            this.updateOnlineCount(0);
+            return;
+        }
+
+        onlineList.forEach(username => {
+            const li = this.createUserListItem(username);
+            userList.appendChild(li);
+        });
+
+        // 更新在线人数显示
+        this.updateOnlineCount(onlineList.length);
+    },
+
+    // ==================== 创建用户列表项 ====================
+    createUserListItem(username) {
+        const li = document.createElement('li');
+        li.dataset.username = username;
+
+        const isCurrentUser = username === this.username;
+
+        li.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <div class="status-indicator ${isCurrentUser ? 'me' : 'online'}"></div>
+                    <span style="flex: 1; ${isCurrentUser ? 'color: #1890ff; font-weight: bold;' : ''}">
+                        ${username}${isCurrentUser ? ' (我)' : ''}
+                    </span>
+                </div>
+                ${!isCurrentUser ? '<div class="unread-badge" style="display: none;">0</div>' : ''}
+            </div>
+        `;
+
+        li.style.cssText = `
+            cursor: ${isCurrentUser ? 'default' : 'pointer'};
+            border-bottom: 1px solid #f0f0f0;
+            background: ${isCurrentUser ? '#f0f8ff' : 'transparent'};
+            transition: all 0.2s;
+        `;
+
+        // 只有不是自己时才有点击事件
+        if (!isCurrentUser) {
+            li.onmouseenter = () => li.style.background = '#f5f5f5';
+            li.onmouseleave = () => li.style.background = '';
+            li.onclick = () => this.openPrivateChat(username);
+        }
+
+        return li;
+    },
+
+    // ==================== 打开私聊窗口（保持原有）====================
     openPrivateChat(targetUsername) {
         if (targetUsername === this.username) {
             alert('不能和自己聊天哦~');
@@ -144,7 +294,7 @@ const ChatApp = {
         });
     },
 
-    // ==================== 发送消息 ====================
+    // ==================== 发送消息（保持原有）====================
     sendMessage(e) {
         e.preventDefault();
         const content = messageInput.value.trim();
@@ -165,12 +315,13 @@ const ChatApp = {
             destination: '/app/chat.send',
             body: JSON.stringify(msg)
         });
+
         // 本地立即显示自己发的消息
         // this.displayLocalMessage(content);
         messageInput.value = '';
     },
 
-    // ==================== 显示自己发的消息（本地即时显示） ====================
+    // ==================== 显示自己发的消息（本地即时显示）====================
     displayLocalMessage(content) {
         const li = document.createElement('li');
         li.className = 'chat-message my-message';
@@ -182,7 +333,7 @@ const ChatApp = {
         messageArea.scrollTop = messageArea.scrollHeight;
     },
 
-    // ==================== 接收消息并显示 ====================
+    // ==================== 接收消息并显示（保持原有）====================
     onMessageReceived(message) {
         const data = JSON.parse(message.body);
 
@@ -216,9 +367,12 @@ const ChatApp = {
     // ==================== 断开连接 ====================
     disconnect() {
         if (this.refreshInterval) clearInterval(this.refreshInterval);
+        if (this.statusManager) this.statusManager.destroy(); // 新增
         if (this.client) this.client.deactivate();
     }
 };
+
+// ==================== 保持你的注册/登录函数完全不变 ====================
 async function register(event) {
     event?.preventDefault();
 
@@ -260,7 +414,6 @@ async function login(event) {
         credentials: "include" // 必须让浏览器处理 Cookie
     });
 
-
     const result=await response.json();
     if(result.code!==200){
         return alert(result.msg||"登陆失败")
@@ -278,7 +431,7 @@ async function login(event) {
     chatPage.classList.remove('hidden');
 
     ChatApp.connect();
-    setTimeout(() => ChatApp.loadOnlineUsers(), 1500);
+    // setTimeout(() => ChatApp.loadOnlineUsers(), 1500);
 }
 
 // ====================== 事件绑定 ======================

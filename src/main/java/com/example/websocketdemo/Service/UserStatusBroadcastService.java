@@ -1,6 +1,7 @@
 package com.example.websocketdemo.Service;
 
 import com.example.websocketdemo.model.UserStatusEvent;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -10,81 +11,93 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 public class UserStatusBroadcastService {
-    //这个Service是在event层被调用的,
-        //存储用户在线信息Hash结构，并广播到对应地址
-    @Autowired
-    SimpMessagingTemplate messagingTemplate;
 
     @Autowired
-    StringRedisTemplate redisTemplate;
+    private StringRedisTemplate redisTemplate;
 
-    private static final String ONLINE_USERS_KEY="chat:online:users:";
-    private static final String USER_INFO_KEY_PREFIX="chat:user:info:";
-    //上线
-    public void broadcastUserOnline(String username){
-       redisTemplate.opsForSet().add(ONLINE_USERS_KEY,username);
-       Map<String,String> userInfo=new HashMap<>();
-       String userInfoKey=USER_INFO_KEY_PREFIX+username;
-       userInfo.put("username",username);
-       userInfo.put("LoginTime",String.valueOf(System.currentTimeMillis()));
-       redisTemplate.opsForHash().putAll(userInfoKey,userInfo);
-        UserStatusEvent event = new UserStatusEvent(
-                username,
-                UserStatusEvent.StatusType.ONLINE,
-                System.currentTimeMillis(),
-                null// 示例头像路径
-        );
-        messagingTemplate.convertAndSend("/topic/user-status", event);
-    }
-
-    public void broadcastUserOffline(String username) {
-        // 1. 从Redis移除
-        redisTemplate.opsForSet().remove(ONLINE_USERS_KEY, username);
-
-        // 3. 创建下线事件
-        UserStatusEvent event = new UserStatusEvent(
-                username,
-                UserStatusEvent.StatusType.OFFLINE,
-                System.currentTimeMillis(),
-                null
-        );
-
-        // 4. 广播
-        messagingTemplate.convertAndSend("/topic/user-status", event);
-
-        redisTemplate.delete(ONLINE_USERS_KEY+username);
-    }
+    private static final String ONLINE_USERS_KEY = "chat:online:users";
+    private static final String USER_INFO_PREFIX = "chat:user:";
 
     /**
-     * 处理心跳 - 更新用户活跃时间
+     * 用户上线
      */
-    public void updateUserHeartbeat(String userId) {
-        String userInfoKey = USER_INFO_KEY_PREFIX + userId;
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(userInfoKey))) {
-            redisTemplate.expire(userInfoKey, 30, TimeUnit.MINUTES); // 续期
+    public void userOnline(String username) {
+        try {
+            // 1. 添加到在线集合
+            redisTemplate.opsForSet().add(ONLINE_USERS_KEY, username);
+
+            // 2. 存储用户信息（30分钟过期）
+            String userKey = USER_INFO_PREFIX + username;
+            Map<String, String> userInfo = new HashMap<>();
+            userInfo.put("username", username);
+            userInfo.put("onlineTime", String.valueOf(System.currentTimeMillis()));
+            redisTemplate.opsForHash().putAll(userKey, userInfo);
+            redisTemplate.expire(userKey, 30, TimeUnit.MINUTES);
+
+            log.info("用户上线: {}", username);
+        } catch (Exception e) {
+            log.error("用户上线失败: {}", username, e);
         }
     }
 
+    /**
+     * 用户下线
+     */
+    public void userOffline(String username) {
+        try {
+            // 1. 从在线集合移除
+            redisTemplate.opsForSet().remove(ONLINE_USERS_KEY, username);
+
+            // 2. 删除用户信息
+            String userKey = USER_INFO_PREFIX + username;
+            redisTemplate.delete(userKey);
+
+            log.info("用户下线: {}", username);
+        } catch (Exception e) {
+            log.error("用户下线失败: {}", username, e);
+        }
+    }
+
+    /**
+     * 获取所有在线用户
+     */
     public List<UserStatusEvent> getOnlineUsers() {
-           Set<String> Onlineuser= redisTemplate.opsForSet().members(ONLINE_USERS_KEY);
-           List<UserStatusEvent> onlineUsers = new ArrayList<>();
-        assert Onlineuser != null;
-        for(String username:Onlineuser){
-              String userInfoKey=USER_INFO_KEY_PREFIX+username;
-              String logintime=(String)redisTemplate.opsForHash().get(userInfoKey,"LoginTime");
+        try {
+            Set<String> usernames = redisTemplate.opsForSet().members(ONLINE_USERS_KEY);
 
-            assert logintime != null;
-            UserStatusEvent event = new UserStatusEvent(
-                    username,
-                    UserStatusEvent.StatusType.ONLINE,
-                    Long.parseLong(logintime),
-                    null
-            );
-            onlineUsers.add(event);
-          }
+            if (usernames == null || usernames.isEmpty()) {
+                return Collections.emptyList();
+            }
 
-        return onlineUsers;
+            List<UserStatusEvent> users = new ArrayList<>();
+            for (String username : usernames) {
+                UserStatusEvent event = new UserStatusEvent();
+                event.setUsername(username);
+                event.setStatus(UserStatusEvent.StatusType.ONLINE);
+                event.setTimestamp(System.currentTimeMillis());
+                users.add(event);
+            }
+
+            return users;
+        } catch (Exception e) {
+            log.error("获取在线用户失败", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 获取在线用户数
+     */
+    public int getOnlineCount() {
+        try {
+            Long count = redisTemplate.opsForSet().size(ONLINE_USERS_KEY);
+            return count != null ? count.intValue() : 0;
+        } catch (Exception e) {
+            log.error("获取在线用户数失败", e);
+            return 0;
+        }
     }
 }
