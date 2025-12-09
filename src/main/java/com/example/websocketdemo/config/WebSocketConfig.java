@@ -40,6 +40,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         //定义服务器往订阅对应前缀的客户端发消息，controller方法要保证/topic前缀完整写出，前端也要保证stompClient.subscribe('/topic/public', callback);
         registry.enableSimpleBroker("/topic","/queue")
                 .setTaskScheduler(heartBeatScheduler())
+                //服务端每20000ms从客户端收一次消息
                 .setHeartbeatValue(new long[]{0,20000});  // Enables a simple in-memory broker
         registry.setUserDestinationPrefix("/user");
         //   Use this for enabling a Full featured broker like RabbitMQ

@@ -136,7 +136,7 @@ const ChatApp = {
         this.client = new StompJs.Client({
             brokerURL: wsUrl,
             heartbeatIncoming: 0,
-            heartbeatOutgoing: 20000,
+            heartbeatOutgoing: 20000,//发送帧
             reconnectDelay: 5000,
             debug: str => console.log('[STOMP]', str),
 

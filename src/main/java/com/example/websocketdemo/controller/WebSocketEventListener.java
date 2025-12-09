@@ -1,6 +1,7 @@
 package com.example.websocketdemo.controller;
 
 import com.example.websocketdemo.Service.UserStatusBroadcastService;
+import com.example.websocketdemo.Service.UserLocationService;
 import com.example.websocketdemo.model.UserStatusEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class WebSocketEventListener {
     @Autowired
     private UserStatusBroadcastService userStatusBroadcastService;
 
+    @Autowired
+    private UserLocationService userLocationService;
+
     // 使用 @Qualifier 指定使用哪个 TaskScheduler
     @Autowired
     @Qualifier("messageBrokerTaskScheduler") // 或者 "heartBeatScheduler"
@@ -46,6 +50,10 @@ public class WebSocketEventListener {
 
             // 立即更新Redis（用户上线）
             userStatusBroadcastService.userOnline(username);
+
+            // 🎯 新增：注册用户位置到当前实例
+            userLocationService.registerUserLocation(username);
+            log.info("已注册用户 {} 的位置信息", username);
 
             // ✅ 关键：延迟500ms后广播，确保前端已订阅
             taskScheduler.schedule(() -> {
@@ -65,6 +73,10 @@ public class WebSocketEventListener {
 
             // 用户下线
             userStatusBroadcastService.userOffline(username);
+
+            // 🎯 新增：清理用户位置信息
+            userLocationService.removeUserLocation(username);
+            log.info("已清理用户 {} 的位置信息", username);
 
             // 立即广播最新列表
             broadcastOnlineList();
