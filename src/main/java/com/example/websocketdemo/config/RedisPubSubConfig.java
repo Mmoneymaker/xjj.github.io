@@ -17,9 +17,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Configuration
@@ -27,7 +25,7 @@ public class RedisPubSubConfig {
 
     // 频道名称
     public static final String USER_STATUS_CHANNEL = "chat:user:status";
-
+    public static final String MESSAGE_CHANNEL = "chat:message:route";
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
@@ -85,7 +83,7 @@ public class RedisPubSubConfig {
 
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(listenerAdapter, new PatternTopic(USER_STATUS_CHANNEL));
+        container.addMessageListener(listenerAdapter, Arrays.asList(new PatternTopic(USER_STATUS_CHANNEL), new PatternTopic(MESSAGE_CHANNEL)) );
         return container;
     }
 }

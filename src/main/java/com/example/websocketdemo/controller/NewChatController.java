@@ -59,7 +59,6 @@ public class NewChatController {
              //这个时候target实际上是个房间号
              template.convertAndSend("/topic/room/"+chatMessage.getTarget(),chatMessage);
          }
-
      }
      else {
          //转发给远程
