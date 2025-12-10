@@ -63,7 +63,7 @@ public class NewChatController {
      }
      else {
          //转发给远程
-        Boolean isSuccess= restTemplate.postForObject("http://"+receiverAddress+"internal/message/forward", chatMessage,Boolean.class);
+        Boolean isSuccess= restTemplate.postForObject("http://"+receiverAddress+"/internal/message/forward", chatMessage,Boolean.class);
         log.info("是否发送成功{}",isSuccess);
      }
     }
