@@ -2,15 +2,21 @@ package com.example.websocketdemo.controller;
 
 import com.example.websocketdemo.Service.UserStatusBroadcastService;
 import com.example.websocketdemo.Service.UserLocationService;
+import com.example.websocketdemo.manager.ServerInstanceManager;
 import com.example.websocketdemo.model.UserStatusEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
@@ -20,10 +26,14 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
 public class WebSocketEventListener {
+
+    @Autowired
+    private ServerInstanceManager serverInstanceManager;
 
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
@@ -34,6 +44,11 @@ public class WebSocketEventListener {
     @Autowired
     private UserLocationService userLocationService;
 
+    @Autowired
+    private StringRedisTemplate RedisTemplate;
+
+    @Autowired
+    private RestTemplate restTemplate;
     // 使用 @Qualifier 指定使用哪个 TaskScheduler
     @Autowired
     @Qualifier("messageBrokerTaskScheduler") // 或者 "heartBeatScheduler"
@@ -136,19 +151,41 @@ public class WebSocketEventListener {
      * 广播当前在线用户列表给所有人
      */
     private void broadcastOnlineList() {
-        try {
-            List<UserStatusEvent> onlineUsers = userStatusBroadcastService.getOnlineUsers();
+        String senderAddress= serverInstanceManager.getInstanceId();
+        // 假设USER_LOCATION_KEY = "user:location:%s"
+        String pattern = "chat:location:*"; // 根据你的实际key模式
+        Set<String> keys = RedisTemplate.keys(pattern);
+        for (String key : keys) {
+            String username = key.replace("chat:location:", ""); // 从key中提取username
+            String userLocation = (String) RedisTemplate.opsForValue().get(key);
+            if(senderAddress.equals(userLocation)) {
+                try {
+                    List<UserStatusEvent> onlineUsers = userStatusBroadcastService.getOnlineUsers();
 
-            Map<String, Object> message = new HashMap<>();
-            message.put("type", "ONLINE_LIST");
-            message.put("users", onlineUsers);
-            message.put("timestamp", System.currentTimeMillis());
+                    Map<String, Object> message = new HashMap<>();
+                    message.put("type", "ONLINE_LIST");
+                    message.put("users", onlineUsers);
+                    message.put("timestamp", System.currentTimeMillis());
 
-            messagingTemplate.convertAndSend("/topic/online-status", message);
+                    messagingTemplate.convertAndSend("/topic/online-status", message);
 
-            log.debug("广播在线列表，共 {} 人在线", onlineUsers.size());
-        } catch (Exception e) {
-            log.error("广播在线列表失败", e);
+                    log.debug("广播在线列表，共 {} 人在线", onlineUsers.size());
+                } catch (Exception e) {
+                    log.error("广播在线列表失败", e);
+                }
+            }else {
+                String url = "http://"+userLocation + "/internal/info";
+                log.info("发送请求到: {}, 用户名: {}", url, username);
+                try {
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.TEXT_PLAIN);
+                    HttpEntity<String> request = new HttpEntity<>(username, headers);
+                    restTemplate.postForObject(url, request, String.class);
+                } catch (Exception e) {
+                    log.info("请求失败: {}, 错误: {}", url, e.getMessage());
+                }
+            }
         }
+
     }
 }

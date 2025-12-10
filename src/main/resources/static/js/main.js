@@ -130,8 +130,8 @@ const ChatApp = {
         const token = this.getCookie('authToken');
         if (!token) return alert('未找到登录凭证，请重新登录');
 
-        // 保持你的url不变
-        const wsUrl = `ws://localhost:8080/ws?token=${encodeURIComponent(token)}`;
+        // 🎯 动态获取当前页面的主机和端口
+        const wsUrl = `ws://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
         this.client = new StompJs.Client({
             brokerURL: wsUrl,

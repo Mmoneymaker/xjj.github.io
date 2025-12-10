@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.messaging.simp.user.SimpUser;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
 import java.util.Map;
@@ -53,8 +54,12 @@ public class UserController {
     }
     @PostMapping("/Registry")
     public Result<String> register(@RequestBody User user, HttpSession session) {
-               userService.SaveUser(user);
-        return Result.success("注册成功");
+        try {
+            userService.SaveUser(user);
+            return Result.success("注册成功");
+        } catch (DuplicateKeyException e) {
+            return Result.error(403, "用户名已存在");
+        }
     }
 
     @PostMapping("/Login")
