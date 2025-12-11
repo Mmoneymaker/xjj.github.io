@@ -17,6 +17,7 @@ public class ChatMessagePO {
     private LocalDateTime create_time;
     private String target;        // 一对一：对方用户名；群聊：roomId
     private String chatType;      // PRIVATE 或 GROUP
+    private Long groupId;         // 群聊ID，群聊消息时使用
 
     // getter & setter 省略
 }

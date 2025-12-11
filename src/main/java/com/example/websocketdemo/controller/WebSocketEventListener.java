@@ -70,7 +70,7 @@ public class WebSocketEventListener {
             // 使用Redis发布订阅通知所有实例
             taskScheduler.schedule(() -> {
                 redisPublisherService.publishUserStatusChange(username, "ONLINE", serverInstanceManager.getInstanceId());
-            }, Instant.now().plusMillis(500));
+            }, Instant.now().plusMillis(100));
         }
     }
 

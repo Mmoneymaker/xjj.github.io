@@ -9,6 +9,7 @@ public class ChatMessage {
     private String sender;
     private ChatType chat_type;
     private String target;
+    private Long groupId; // 群聊ID，群聊消息时使用
 
     public enum ChatType {
         PRIVATE,
@@ -58,5 +59,13 @@ public class ChatMessage {
 
     public void setSender(String sender) {
         this.sender = sender;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
     }
 }
