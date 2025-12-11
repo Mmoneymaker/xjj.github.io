@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -50,5 +51,17 @@ public class TokenUtils {
     }   catch (Exception e) {
        throw new BusinessException(401,"Token解析失败");
        }
+    }
+
+    // 从 HttpServletRequest 中获取用户名
+    public static String getUsernameFromToken(HttpServletRequest request) {
+        // 1. 先从 Authorization header 获取
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            TokenUtils tokenUtils = new TokenUtils();
+            return tokenUtils.getUsernameFromJwtToken(token);
+        }
+        return null;
     }
 }

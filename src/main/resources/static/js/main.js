@@ -4,6 +4,22 @@
 
 const $ = (selector) => document.querySelector(selector);
 
+// Cookie 操作函数
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') {
+            c = c.substring(1, c.length);
+        }
+        if (c.indexOf(nameEQ) === 0) {
+            return c.substring(nameEQ.length, c.length);
+        }
+    }
+    return null;
+}
+
 const usernamePage      = $('#username-page');
 const chatPage          = $('#chat-page');
 const usernameForm      = $('#usernameForm');
@@ -383,7 +399,7 @@ async function register(event) {
         return alert("用户名和密码不能为空");
     }
 
-    const response = await fetch("/Registry", {
+    const response = await fetch("/user/Registry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -407,7 +423,7 @@ async function login(event) {
 
     if (!username || !password) return alert("请输入用户名和密码");
 
-    const response = await fetch("/Login", {
+    const response = await fetch("/user/Login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -447,3 +463,436 @@ document.getElementById('testToken').addEventListener('click', async () => {
 
 // 页面关闭时断开
 window.addEventListener('beforeunload', () => ChatApp.disconnect());
+
+// ====================== 群聊相关事件 ======================
+// 选项卡切换
+document.getElementById('privateChatTab').addEventListener('click', () => {
+    document.getElementById('privateChatTab').classList.add('active');
+    document.getElementById('groupChatTab').classList.remove('active');
+    document.getElementById('privateChatTab').style.borderBottom = '2px solid #128ff2';
+    document.getElementById('privateChatTab').style.color = '#128ff2';
+    document.getElementById('groupChatTab').style.borderBottom = 'none';
+    document.getElementById('groupChatTab').style.color = '#333';
+    document.getElementById('privateChatList').style.display = 'block';
+    document.getElementById('groupChatList').style.display = 'none';
+});
+
+document.getElementById('groupChatTab').addEventListener('click', () => {
+    document.getElementById('groupChatTab').classList.add('active');
+    document.getElementById('privateChatTab').classList.remove('active');
+    document.getElementById('groupChatTab').style.borderBottom = '2px solid #128ff2';
+    document.getElementById('groupChatTab').style.color = '#128ff2';
+    document.getElementById('privateChatTab').style.borderBottom = 'none';
+    document.getElementById('privateChatTab').style.color = '#333';
+    document.getElementById('groupChatList').style.display = 'block';
+    document.getElementById('privateChatList').style.display = 'none';
+    // 加载群聊列表
+    ChatApp.loadGroups();
+});
+
+// 创建群聊按钮
+document.getElementById('createGroupBtn').addEventListener('click', () => {
+    ChatApp.showCreateGroupModal();
+});
+
+// 取消创建群聊
+document.getElementById('cancelCreateGroup').addEventListener('click', () => {
+    ChatApp.hideCreateGroupModal();
+});
+
+// 创建群聊表单
+document.getElementById('createGroupForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    ChatApp.createGroup();
+});
+
+// 群信息按钮
+document.getElementById('groupInfoBtn').addEventListener('click', () => {
+    ChatApp.showGroupInfo();
+});
+
+// 关闭群信息
+document.getElementById('closeGroupInfo').addEventListener('click', () => {
+    document.getElementById('groupInfoModal').style.display = 'none';
+});
+
+// ====================== 群聊功能扩展 ======================
+// 在 ChatApp 类中添加群聊相关方法
+ChatApp.groups = [];  // 群聊列表
+ChatApp.currentGroupId = null;  // 当前群聊ID
+
+// 加载群聊列表
+ChatApp.loadGroups = async function() {
+    try {
+        const response = await fetch('/api/group/list', {
+            headers: {
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            }
+        });
+        const result = await response.json();
+
+        if (result.code === 200) {
+            this.groups = result.data || [];
+            this.renderGroups();
+        }
+    } catch (error) {
+        console.error('加载群聊列表失败:', error);
+    }
+};
+
+// 渲染群聊列表
+ChatApp.renderGroups = function() {
+    const groupList = document.getElementById('groupList');
+    groupList.innerHTML = '';
+
+    this.groups.forEach(group => {
+        const li = document.createElement('li');
+        li.style.cssText = `
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            background: white;
+        `;
+        li.onmouseover = () => li.style.background = '#f5f5f5';
+        li.onmouseout = () => li.style.background = 'white';
+
+        li.innerHTML = `
+            <div style="width: 40px; height: 40px; background: ${getAvatarColor(group.groupName)}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                群
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: bold;">${group.groupName}</div>
+                <div style="font-size: 12px; color: #666;">${group.memberCount || 0} 人</div>
+            </div>
+        `;
+
+        li.onclick = () => this.selectGroup(group);
+        groupList.appendChild(li);
+    });
+};
+
+// 选择群聊
+ChatApp.selectGroup = function(group) {
+    this.currentChatUser = null;
+    this.currentGroupId = group.id;
+
+    // 更新聊天标题
+    const chatTitle = document.getElementById('chatTitle');
+    chatTitle.textContent = `${group.groupName} (${group.memberCount || 0}人)`;
+
+    // 显示群信息按钮
+    document.getElementById('chatActions').style.display = 'block';
+    document.getElementById('groupInfoBtn').style.display = 'inline-block';
+
+    // 清空消息区域
+    messageArea.innerHTML = '';
+
+    // 高亮选中的群
+    this.highlightSelectedGroup(group.id);
+
+    // 订阅群聊主题
+    if (this.client && this.client.connected) {
+        this.subscribeToGroup(group.id);
+        this.loadGroupHistory(group.id);
+    }
+
+    // 更新最后阅读时间
+    this.updateGroupReadTime(group.id);
+};
+
+// 订阅群聊
+ChatApp.subscribeToGroup = function(groupId) {
+    // 先取消之前的订阅
+    if (this.currentSubscription) {
+        this.currentSubscription.unsubscribe();
+    }
+
+    // 订阅群聊主题
+    this.currentSubscription = this.client.subscribe(
+        `/topic/group/${groupId}`,
+        (message) => this.onMessageReceived(message)
+    );
+};
+
+// 加载群聊历史
+ChatApp.loadGroupHistory = async function(groupId) {
+    try {
+        const response = await fetch('/chat/history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            },
+            body: JSON.stringify({
+                target: groupId.toString(),
+                Chattype: 'GROUP'
+            })
+        });
+
+        const history = await response.json();
+        if (Array.isArray(history)) {
+            history.reverse().forEach(msg => {
+                this.onMessageReceived({ body: JSON.stringify(msg) });
+            });
+        }
+    } catch (error) {
+        console.error('加载群聊历史失败:', error);
+    }
+};
+
+// 显示创建群聊模态框
+ChatApp.showCreateGroupModal = async function() {
+    // 先加载用户列表
+    await this.loadUsersForGroupCreation();
+    document.getElementById('createGroupModal').style.display = 'block';
+    document.getElementById('groupName').value = '';
+    document.getElementById('groupDesc').value = '';
+};
+
+// 隐藏创建群聊模态框
+ChatApp.hideCreateGroupModal = function() {
+    document.getElementById('createGroupModal').style.display = 'none';
+};
+
+// 加载用户列表用于创建群聊
+ChatApp.loadUsersForGroupCreation = async function() {
+    try {
+        console.log('开始加载用户列表...');
+        console.log('当前 Token:', getCookie('authToken'));
+
+        // 先不带认证头试试
+        const response = await fetch('/user/online');
+
+        console.log('响应状态:', response.status);
+        console.log('响应头:', response.headers);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('HTTP 错误:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('响应数据:', result);
+
+        const users = result.data || [];
+        console.log('用户列表:', users);
+
+        const memberSelectList = document.getElementById('memberSelectList');
+        memberSelectList.innerHTML = '';
+
+        if (users.length === 0) {
+            memberSelectList.innerHTML = '<p style="color: #999; text-align: center;">暂无在线用户</p>';
+            return;
+        }
+
+        users.forEach(user => {
+            if (user.username !== this.username) {
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    padding: 8px;
+                    border-bottom: 1px solid #eee;
+                    display: flex;
+                    align-items: center;
+                `;
+
+                // 创建复选框和标签
+                const label = document.createElement('label');
+                label.style.cssText = `
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    flex: 1;
+                `;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = user.username;
+                checkbox.style.cssText = `
+                    margin-right: 10px;
+                    cursor: pointer;
+                `;
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = user.username;
+
+                // 组装元素
+                label.appendChild(checkbox);
+                label.appendChild(textSpan);
+                div.appendChild(label);
+
+                memberSelectList.appendChild(div);
+            }
+        });
+
+        console.log('用户列表渲染完成');
+    } catch (error) {
+        console.error('加载用户列表失败:', error);
+        const memberSelectList = document.getElementById('memberSelectList');
+        memberSelectList.innerHTML = '<p style="color: red;">加载失败，请重试</p>';
+    }
+};
+
+// 创建群聊
+ChatApp.createGroup = async function() {
+    const groupName = document.getElementById('groupName').value.trim();
+    const groupDesc = document.getElementById('groupDesc').value.trim();
+    const memberCheckboxes = document.querySelectorAll('#memberSelectList input[type="checkbox"]:checked');
+    const members = Array.from(memberCheckboxes).map(cb => cb.value);
+
+    if (!groupName) {
+        alert('请输入群聊名称');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/group/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            },
+            body: JSON.stringify({
+                groupName: groupName,
+                groupDesc: groupDesc,
+                members: members
+            })
+        });
+
+        const result = await response.json();
+        if (result.code === 200) {
+            alert('创建群聊成功');
+            this.hideCreateGroupModal();
+            // 刷新群聊列表
+            this.loadGroups();
+        } else {
+            alert(result.msg || '创建群聊失败');
+        }
+    } catch (error) {
+        console.error('创建群聊失败:', error);
+        alert('创建群聊失败');
+    }
+};
+
+// 高亮选中的群
+ChatApp.highlightSelectedGroup = function(groupId) {
+    // 清除所有高亮
+    document.querySelectorAll('#groupList li').forEach(li => {
+        li.style.background = 'white';
+    });
+
+    // 高亮选中的群
+    const selectedLi = Array.from(document.querySelectorAll('#groupList li')).find(li =>
+        li.onclick && li.onclick.toString().includes(groupId)
+    );
+    if (selectedLi) {
+        selectedLi.style.background = '#e3f2fd';
+    }
+};
+
+// 显示群信息
+ChatApp.showGroupInfo = async function() {
+    if (!this.currentGroupId) return;
+
+    try {
+        const response = await fetch(`/api/group/${this.currentGroupId}`, {
+            headers: {
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            }
+        });
+
+        const result = await response.json();
+        if (result.code === 200) {
+            const group = result.data;
+            const content = document.getElementById('groupInfoContent');
+
+            content.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0;">${group.groupName}</h4>
+                    <p style="margin: 0; color: #666;">${group.groupDesc || '暂无描述'}</p>
+                    <p style="margin: 5px 0; color: #666;">成员数：${group.memberCount}人</p>
+                    <p style="margin: 5px 0; color: #666;">创建时间：${new Date(group.createTime).toLocaleString()}</p>
+                </div>
+                <div>
+                    <h5 style="margin-bottom: 10px;">群成员</h5>
+                    <div id="groupMemberList" style="max-height: 200px; overflow-y: auto;">
+                        <!-- 加载成员列表 -->
+                    </div>
+                </div>
+            `;
+
+            // 加载成员列表
+            this.loadGroupMembers();
+
+            document.getElementById('groupInfoModal').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('获取群信息失败:', error);
+    }
+};
+
+// 加载群成员
+ChatApp.loadGroupMembers = async function() {
+    try {
+        const response = await fetch(`/api/group/${this.currentGroupId}/members`, {
+            headers: {
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            }
+        });
+
+        const result = await response.json();
+        if (result.code === 200) {
+            const memberList = document.getElementById('groupMemberList');
+            if (memberList) {
+                memberList.innerHTML = result.data.map(member => `
+                    <div style="padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                        <span>${member.nickname || member.username} ${member.roleName ? `(${member.roleName})` : ''}</span>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (error) {
+        console.error('加载群成员失败:', error);
+    }
+};
+
+// 更新群聊阅读时间
+ChatApp.updateGroupReadTime = async function(groupId) {
+    try {
+        await fetch(`/api/group/${groupId}/read`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + getCookie('authToken')
+            }
+        });
+    } catch (error) {
+        console.error('更新阅读时间失败:', error);
+    }
+};
+
+// 修改发送消息方法，支持群聊
+ChatApp.sendMessageOriginal = ChatApp.sendMessage;
+ChatApp.sendMessage = function(e) {
+    e.preventDefault();
+
+    const messageContent = messageInput.value.trim();
+    if (messageContent && this.client && this.client.connected) {
+        const chatMessage = {
+            type: 'CHAT',
+            content: messageContent,
+            sender: this.username,
+            target: this.currentGroupId ? this.currentGroupId.toString() : this.currentChatUser,
+            chat_type: this.currentGroupId ? 'GROUP' : 'PRIVATE',
+            groupId: this.currentGroupId
+        };
+
+        this.client.publish({
+            destination: '/app/chat.send',
+            body: JSON.stringify(chatMessage)
+        });
+
+        messageInput.value = '';
+    }
+};

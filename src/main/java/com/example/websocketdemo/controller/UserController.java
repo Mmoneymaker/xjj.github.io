@@ -9,21 +9,21 @@ import com.example.websocketdemo.model.UserStatusEvent;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.messaging.simp.user.SimpUser;
 import org.springframework.dao.DuplicateKeyException;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+@Slf4j
 @RestController
+@RequestMapping("/user")
 public class UserController {
 
     @Autowired
@@ -69,9 +69,32 @@ public class UserController {
         return Result.success("登陆成功");
     }
 
-//    @GetMapping("/TestToken")
-//    public Result<String> testToken(User user,HttpServletRequest request) {
-//        userService.test(request);
-//        return ResponseEntity.ok().build();
-//    }
+    /**
+     * 获取在线用户列表
+     */
+    @GetMapping("/online")
+    public Result<List<Map<String, Object>>> getOnlineUsers() {
+        try {
+            // 获取在线用户列表
+            List<UserStatusEvent> onlineUsers = userStatusBroadcastService.getOnlineUsers();
+
+            log.info("获取在线用户列表，当前在线人数: {}", onlineUsers.size());
+
+            // 转换为前端需要的格式
+            List<Map<String, Object>> userList = onlineUsers.stream()
+                .map(user -> {
+                    Map<String, Object> userInfo = new HashMap<>();
+                    userInfo.put("username", user.getUsername());
+                    userInfo.put("status", user.getStatus());
+                    userInfo.put("timestamp", user.getTimestamp());
+                    return userInfo;
+                })
+                .collect(Collectors.toList());
+
+            return Result.success(userList);
+        } catch (Exception e) {
+            log.error("获取在线用户失败", e);
+            return Result.error(500, "获取在线用户失败: " + e.getMessage());
+        }
+    }
 }

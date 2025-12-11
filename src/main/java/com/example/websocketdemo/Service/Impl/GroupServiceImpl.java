@@ -55,13 +55,20 @@ public class GroupServiceImpl implements GroupService {
         // 添加初始成员
         if (request.getMembers() != null && !request.getMembers().isEmpty()) {
             for (String member : request.getMembers()) {
-                GroupMember gm = new GroupMember();
-                gm.setGroupId(group.getId());
-                gm.setUsername(member);
-                gm.setRole(GroupMember.ROLE_MEMBER);
-                gm.setJoinTime(LocalDateTime.now());
-                gm.setStatus(GroupMember.STATUS_ACTIVE);
-                groupMemberMapper.insert(gm);
+                // 检查是否是群主（群主已经添加过了）
+                if (!member.equals(owner)) {
+                    // 检查是否已经在群中
+                    Integer existing = groupMemberMapper.isMemberInGroup(group.getId(), member);
+                    if (existing == null || existing == 0) {
+                        GroupMember gm = new GroupMember();
+                        gm.setGroupId(group.getId());
+                        gm.setUsername(member);
+                        gm.setRole(GroupMember.ROLE_MEMBER);
+                        gm.setJoinTime(LocalDateTime.now());
+                        gm.setStatus(GroupMember.STATUS_ACTIVE);
+                        groupMemberMapper.insert(gm);
+                    }
+                }
             }
         }
 

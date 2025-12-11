@@ -25,13 +25,26 @@ public class GroupController {
     private GroupService groupService;
 
     /**
+     * 获取当前用户名
+     */
+    private String getCurrentUsername(HttpServletRequest request) {
+        // 1. 先尝试从 Principal 获取（如果有安全上下文）
+//        if (request.getUserPrincipal() != null) {
+//            return request.getUserPrincipal().getName();
+//        }
+
+        // 2. 从 Token 获取
+        return TokenUtils.getUsernameFromToken(request);
+    }
+
+    /**
      * 创建群聊
      */
     @PostMapping("/create")
     public Result<GroupVO> createGroup(@RequestBody CreateGroupRequest request,
                                        HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -56,7 +69,7 @@ public class GroupController {
     public Result<String> joinGroup(@PathVariable Long groupId,
                                     HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -80,7 +93,7 @@ public class GroupController {
     public Result<String> quitGroup(@PathVariable Long groupId,
                                     HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -103,7 +116,7 @@ public class GroupController {
     @GetMapping("/list")
     public Result<List<GroupVO>> getUserGroups(HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -123,7 +136,7 @@ public class GroupController {
     public Result<GroupVO> getGroupInfo(@PathVariable Long groupId,
                                        HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -147,7 +160,7 @@ public class GroupController {
     public Result<List<GroupVO.GroupMemberVO>> getGroupMembers(@PathVariable Long groupId,
                                                                HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -173,7 +186,7 @@ public class GroupController {
                                        @PathVariable String memberUsername,
                                        HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
@@ -197,7 +210,7 @@ public class GroupController {
     public Result<String> updateLastReadTime(@PathVariable Long groupId,
                                             HttpServletRequest httpRequest) {
         try {
-            String username = TokenUtils.getUsernameFromToken(httpRequest);
+            String username = getCurrentUsername(httpRequest);
             if (username == null) {
                 return Result.error(401, "用户未登录");
             }
