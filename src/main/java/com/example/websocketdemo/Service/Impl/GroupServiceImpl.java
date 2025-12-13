@@ -7,6 +7,7 @@ import com.example.websocketdemo.DTO.GroupVO;
 import com.example.websocketdemo.Service.GroupService;
 import com.example.websocketdemo.mapper.GroupMapper;
 import com.example.websocketdemo.mapper.GroupMemberMapper;
+import com.example.websocketdemo.model.ChatMessage;
 import com.example.websocketdemo.model.Group;
 import com.example.websocketdemo.model.GroupMember;
 import lombok.extern.slf4j.Slf4j;
@@ -144,13 +145,18 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public List<GroupVO> getUserGroups(String username) {
+        log.info("获取用户 {} 的群聊列表", username);
         List<Group> groups = groupMapper.listUserGroups(username);
+        log.info("查询到 {} 个群聊", groups.size());
+
         return groups.stream()
                 .map(group -> {
+                    log.debug("群聊 {}: owner={}, 状态={}", group.getId(), group.getOwnerId(), group.getStatus());
                     GroupVO vo = convertToGroupVO(group);
                     // 获取成员数量
                     Integer memberCount = groupMemberMapper.getGroupMemberCount(group.getId());
                     vo.setMemberCount(memberCount);
+                    log.debug("群聊 {} 成员数: {}", group.getId(), memberCount);
                     return vo;
                 })
                 .collect(Collectors.toList());
@@ -233,6 +239,24 @@ public class GroupServiceImpl implements GroupService {
     }
 
     /**
+     * 从群聊中读取历史记录，只需要个groupId即可
+     */
+    @Override
+    public List<ChatMessage> getChatMessages(Long groupId) {
+        return groupMapper.getChatMessages(groupId);
+    }
+
+    /**
+     * 获取群聊历史记录（带限制条数）
+     */
+    @Override
+    public List<ChatMessage> getGroupHistory(Long groupId, int limit) {
+        return groupMapper.getGroupHistory(groupId, limit);
+    }
+
+
+
+    /**
      * 转换Group到GroupVO
      */
     private GroupVO convertToGroupVO(Group group) {
@@ -267,4 +291,6 @@ public class GroupServiceImpl implements GroupService {
 
         return vo;
     }
+
+
 }

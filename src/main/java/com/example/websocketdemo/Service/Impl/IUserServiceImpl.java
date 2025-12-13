@@ -82,7 +82,7 @@ public class IUserServiceImpl extends ServiceImpl<RegistryMapper,User> implement
         String token = tokenUtils.generateJwtToken(loginUser.getUsername());
         log.info("用户登录成功: {}, token: {}", loginUser.getUsername(), token);
 
-        Cookie cookie = CookieUtils.CreateCookie(token);
+        Cookie cookie = CookieUtils.CreateUserCookie(token, loginUser.getUsername());
         response.addCookie(cookie);
         //30分钟
         userCacheService.saveJwtTokenWithExpire(token, loginUser,1800);

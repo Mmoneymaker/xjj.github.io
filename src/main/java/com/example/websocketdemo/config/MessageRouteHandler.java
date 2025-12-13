@@ -46,7 +46,7 @@ public class MessageRouteHandler {
             log.info("处理跨实例消息: 发送者={}, 接收者={}, 接收者位置={}, 当前实例={}",
                     senderName, receiverName, receiverLocation, currentInstance);
 
-            messageSaveService.save(msg);
+//            messageSaveService.save(msg);
 
             if (currentInstance.equals(receiverLocation)) {
                 log.info("接收者 {} 在当前实例，推送消息", receiverName);
@@ -55,7 +55,7 @@ public class MessageRouteHandler {
                     template.convertAndSendToUser(msg.getTarget(), "/queue/messages", msg);
                     log.info("已推送私聊消息给接收者: {}", msg.getTarget());
 
-                } else if ("PUBLIC".equals(msg.getChat_type().toString())) {
+                } else if ("GROUP".equals(msg.getChat_type().toString())) {
                     //这个时候target实际上是个房间号
                     template.convertAndSend("/topic/room/" + msg.getTarget(), msg);
                     log.info("已推送群聊消息到房间: {}", msg.getTarget());

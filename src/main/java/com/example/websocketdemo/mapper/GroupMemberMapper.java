@@ -39,6 +39,6 @@ public interface GroupMemberMapper extends BaseMapper<GroupMember> {
     int updateLastReadTime(@Param("groupId") Long groupId, @Param("username") String username);
 
 
-    @Select("SELECT COUNT(*) FROM tb_group g INNER JOIN tb_group_member gm ON gm.group_id=#{groupId}")
+    @Select("SELECT COUNT(*) FROM tb_group_member WHERE group_id = #{groupId} AND status = 1")
     Integer getGroupMemberCount(Long groupId);
 }

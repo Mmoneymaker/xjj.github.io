@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import  com.example.websocketdemo.exception.BusinessException;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import java.time.LocalDateTime;
@@ -28,6 +29,7 @@ public class MessageSaveServiceImpl implements MessageSaveService {
     ChatMessageMapper chatMessageMapper;
     @Override
     @Async("taskExecutor")
+    @Transactional
     public void save(ChatMessage message) {
         long start = System.currentTimeMillis();
         log.info("发送者是{}",message.getSender());
@@ -36,6 +38,7 @@ public class MessageSaveServiceImpl implements MessageSaveService {
         messagePO.setContent(message.getContent());
         messagePO.setCreate_time(LocalDateTime.now());
         messagePO.setTarget(message.getTarget());
+        messagePO.setGroupId(Long.parseLong(message.getTarget()));
         //ChatType是private还是group
         messagePO.setChatType(message.getChat_type().toString());
         if(chatMessageMapper.insert(messagePO)!=1){

@@ -5,6 +5,7 @@ import com.example.websocketdemo.DTO.GroupVO;
 import com.example.websocketdemo.Service.GroupService;
 import com.example.websocketdemo.Utils.TokenUtils;
 import com.example.websocketdemo.common.Result;
+import com.example.websocketdemo.model.ChatMessage;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -220,6 +221,37 @@ public class GroupController {
         } catch (Exception e) {
             log.error("更新阅读时间失败", e);
             return Result.error(500, "更新阅读时间失败");
+        }
+    }
+
+    /**
+     * 获取群聊历史记录
+     */
+    @PostMapping("/{groupId}/history")
+    public Result<List<ChatMessage>> loadHistory(@PathVariable Long groupId,
+                                                @RequestParam(defaultValue = "50") int limit,
+                                                HttpServletRequest httpRequest) {
+        try {
+            String username = getCurrentUsername(httpRequest);
+            if (username == null) {
+                return Result.error(401, "用户未登录");
+            }
+
+            // 检查用户是否在群中
+            if (!groupService.isMemberInGroup(groupId, username)) {
+                return Result.error(403, "您不在该群聊中");
+            }
+
+            // 获取群聊历史记录
+            List<ChatMessage> history = groupService.getGroupHistory(groupId, limit);
+
+            // 更新最后阅读时间
+            groupService.updateLastReadTime(groupId, username);
+
+            return Result.success(history);
+        } catch (Exception e) {
+            log.error("获取群聊历史记录失败", e);
+            return Result.error(500, "获取群聊历史记录失败");
         }
     }
 }

@@ -6,6 +6,26 @@ const $ = (selector) => document.querySelector(selector);
 
 // Cookie 操作函数
 function getCookie(name) {
+    // 获取当前用户名（从全局变量或当前输入框）
+    const currentUser = window.ChatApp?.username || document.getElementById("name")?.value.trim();
+
+    if (currentUser) {
+        // 1. 优先查找当前用户的特定Cookie（格式：authToken_用户名）
+        const userCookieName = 'authToken_' + currentUser;
+        const ca = document.cookie.split(';');
+        for(let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') {
+                c = c.substring(1, c.length);
+            }
+            if (c.startsWith(userCookieName + '=')) {
+                console.log('找到用户特定Cookie:', userCookieName);
+                return c.substring(c.indexOf('=') + 1);
+            }
+        }
+    }
+
+    // 2. 回退到通用Cookie获取
     const nameEQ = name + "=";
     const ca = document.cookie.split(';');
     for(let i = 0; i < ca.length; i++) {
@@ -14,9 +34,11 @@ function getCookie(name) {
             c = c.substring(1, c.length);
         }
         if (c.indexOf(nameEQ) === 0) {
+            console.log('找到通用Cookie');
             return c.substring(nameEQ.length, c.length);
         }
     }
+    console.log('未找到任何Cookie，当前用户:', currentUser);
     return null;
 }
 
@@ -143,7 +165,7 @@ const ChatApp = {
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
 
-        const token = this.getCookie('authToken');
+        const token = getCookie('authToken');
         if (!token) return alert('未找到登录凭证，请重新登录');
 
         // 🎯 动态获取当前页面的主机和端口
@@ -619,26 +641,26 @@ ChatApp.subscribeToGroup = function(groupId) {
 // 加载群聊历史
 ChatApp.loadGroupHistory = async function(groupId) {
     try {
-        const response = await fetch('/chat/history', {
+        const response = await fetch(`/api/group/${groupId}/history`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + getCookie('authToken')
-            },
-            body: JSON.stringify({
-                target: groupId.toString(),
-                Chattype: 'GROUP'
-            })
+            }
         });
 
-        const history = await response.json();
-        if (Array.isArray(history)) {
-            history.reverse().forEach(msg => {
+        const result = await response.json();
+        if (result.code === 200 && Array.isArray(result.data)) {
+            // 数据库倒序查的，要正序显示
+            result.data.reverse().forEach(msg => {
                 this.onMessageReceived({ body: JSON.stringify(msg) });
             });
+        } else {
+            messageArea.innerHTML = `<li class="event-message"><p>${result.msg || '加载历史消息失败'}</p></li>`;
         }
     } catch (error) {
         console.error('加载群聊历史失败:', error);
+        messageArea.innerHTML = '<li class="event-message"><p>加载历史消息失败</p></li>';
     }
 };
 

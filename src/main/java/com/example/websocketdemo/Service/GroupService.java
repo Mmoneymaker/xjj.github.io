@@ -2,6 +2,7 @@ package com.example.websocketdemo.Service;
 
 import com.example.websocketdemo.DTO.CreateGroupRequest;
 import com.example.websocketdemo.DTO.GroupVO;
+import com.example.websocketdemo.model.ChatMessage;
 import com.example.websocketdemo.model.Group;
 import com.example.websocketdemo.model.GroupMember;
 
@@ -56,4 +57,11 @@ public interface GroupService {
      * 更新群聊最后阅读时间
      */
     void updateLastReadTime(Long groupId, String username);
+
+    List<ChatMessage> getChatMessages(Long groupId);
+
+    /**
+     * 获取群聊历史记录（带限制条数）
+     */
+    List<ChatMessage> getGroupHistory(Long groupId, int limit);
 }
